@@ -1,6 +1,7 @@
 from src_gui import GUIFrame
 from datetime import datetime
 
+import signal
 import os
 import getpass
 import socket
@@ -16,14 +17,12 @@ matplotlib.use('WXAgg')
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 import matplotlib.pyplot as plt
 
-#  Perhaps save user settings ?
-# For each user there could be a config file with settings. Otherwise use defaults
-
+__authors__ = "Leon Voss, Maksim Beliaev"
+__version__ = "v2.0"
 
 # Simple dictionary for the versions (* at the beginning) for the default version
 default_version = u"2019 R1"
 install_dir = {
-
     u"R18.2":   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64/ansysedt',
     u"R19.0":   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64/ansysedt',
     u"R19.1":   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64/ansysedt',
@@ -54,12 +53,12 @@ class QueueData:
 
 
 default_queue = u'euc09'
-queue = {
-    u'euc09': QueueData(0, 0, 20, '128GB',
+queue_dict = {
+    u'euc09': QueueData(10, 0, 20, '128GB',
                         ['pe_mpi_te', 'electronics-8', 'electronics-16', 'electronics-20'], 'electronics-8'),
-    u'ottc01': QueueData(0, 0, 28, '128GB',
+    u'ottc01': QueueData(10, 0, 28, '128GB',
                          ['pe_mpi_te', 'electronics-8', 'electronics-16', 'electronics-28'], 'electronics-8'),
-    u'euc09lm': QueueData(0, 0, 28, '512GB',
+    u'euc09lm': QueueData(10, 0, 28, '512GB',
                           ['pe_mpi_te', 'electronics-8', 'electronics-16', 'electronics-28'], 'electronics-8')
 }
 
@@ -77,13 +76,14 @@ node_config_str = {
     'euc09lm':  '(28 cores, 512GB  / node)'
 }
 
-
-# Nice Grid Engine infos
-# https://idos-wiki.unibe.ch/demo/beispiel-dokumentation/interacting-with-the-grid-engine
-# Comments on parallel-environment
-# pe_mpi_ti hat tight integration, d.h. der Scheduler uebernimmt die Kontrolle der slaves und eine andere
-# allocation rule. Bei electronics-28 ist diese "fix" auf 28 cores eingestellt, bei pe_mpi_ti auf $fill_up
-# bei nicht exklusiver Nutzung fuellt der Scheduler die Nodes bis zum Maximum
+"""
+Nice Grid Engine infos
+https://idos-wiki.unibe.ch/demo/beispiel-dokumentation/interacting-with-the-grid-engine
+Comments on parallel-environment
+pe_mpi_ti hat tight integration, d.h. der Scheduler uebernimmt die Kontrolle der slaves und eine andere
+allocation rule. Bei electronics-28 ist diese "fix" auf 28 cores eingestellt, bei pe_mpi_ti auf $fill_up
+bei nicht exklusiver Nutzung fuellt der Scheduler die Nodes bis zum Maximum
+"""
 
 
 # At start - get cluster data and store accordingly
@@ -97,14 +97,15 @@ class CreatePlot(wx.Panel):
         used = []
         rest = []
         xes = []
-        for queue_name in queue:
-            queue_data = queue[queue_name]
+        for queue_name in queue_dict:
+            queue_data = queue_dict[queue_name]
             used.append(queue_data.used_cpu())
             rest.append(queue_data.available())
-            xes.append('{}: {} Nodes\n{} cores/node {}\nFree cores: {}/{}'.format(queue_name, queue_data.num_nodes(),
-                                                               queue_data.cores_per_node,
-                                                               queue_data.mem_per_node,
-                                                               queue_data.avail_cores, queue_data.num_cores))
+            xes.append('{}: {} Nodes\n{} cores/node {}\nFree cores: {}/{}'.format(
+                queue_name, queue_data.num_nodes(),
+                queue_data.cores_per_node,
+                queue_data.mem_per_node,
+                queue_data.avail_cores, queue_data.num_cores))
 
         plt.clf()  # clear the plot to create a new one to update cluster usage
         width = 0.35  # the width of the bars: can also be len(x) sequence
@@ -115,7 +116,7 @@ class CreatePlot(wx.Panel):
         plt.title('Queue Loading Summary')
 
         # Define x axis as the discreate queue names
-        nq = len(queue)
+        nq = len(queue_dict)
         plt.xticks(range(0, nq), xes)
         plt.margins(0.02, 0.1)
 
@@ -125,7 +126,11 @@ class CreatePlot(wx.Panel):
         plt.yticks(yrange, [str(i)+'%' for i in yrange])
         self.figure = plt.gcf()
 
-        self.canvas = FigureCanvas(self.parent, -1, self.figure)
+        try:
+            self.canvas = FigureCanvas(self.parent, -1, self.figure)
+        except RuntimeError:
+            return print("No parent for plot. Thread is not killed!")
+
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.canvas, 1, wx.TOP | wx.LEFT | wx.EXPAND)
         self.parent.SetSizer(sizer)
@@ -143,7 +148,7 @@ class ClearMsgPopupMenu(wx.Menu):
         self.Append(mmi)
         self.Bind(wx.EVT_MENU, self.on_clear, mmi)
 
-    def on_clear(self, e):
+    def on_clear(self, _unused):
         self.parent.scheduler_msg_viewlist.DeleteAllItems()
         self.parent.log_data = {"Message List": [],
                                 "PID List": [],
@@ -163,11 +168,9 @@ class MyWindow(GUIFrame):
         self.username = getpass.getuser()
         self.hostname = socket.gethostname()
         self.display_node = os.getenv('DISPLAY')
+        self.qstat = "/ott/apps/uge/bin/lx-amd64/qstat"
 
         # get paths
-        self.qsuboutput = os.path.join(self.user_dir, '.aedt', 'qsub_log')
-        self.qstat_cluster = os.path.join(self.user_dir, '.aedt', 'cluster_usage')
-        self.qstat_user = os.path.join(self.user_dir, '.aedt', 'user_usage')
         self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
         self.builds_data = {}
 
@@ -192,41 +195,12 @@ class MyWindow(GUIFrame):
             msg = "Warning: Unknown Display Type!!"
             viz_type = ''
 
-        if not os.path.exists(os.path.dirname(self.qstat_cluster)):
+        if not os.path.exists(os.path.dirname(self.user_build_json)):
             try:
-                os.makedirs(os.path.dirname(self.qstat_cluster))
+                os.makedirs(os.path.dirname(self.user_build_json))
             except OSError as exc:  # Guard against race condition
                 if exc.errno != errno.EEXIST:
                     raise
-
-        self.qstat = "/ott/apps/uge/bin/lx-amd64/qstat"
-        subprocess.call(self.qstat + ' -g c > ' + self.qstat_cluster, shell=True)
-
-        """
-         Example of output of qstat -g c
-        CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
-        --------------------------------------------------------------------------------
-        all.q                             -NA-      0      0      0      0      0      0
-        dcv                               0.64     32      0      4     36      0      0
-        euc09                             0.47    742      0    218    960      0      0
-        euc09gpu                          0.00      0      0     56     56      0      0
-        euc09lm                           0.37     56      0     84    140     28      0
-        ottc01                            0.43   1040      0    276   1344      0     28
-        vnc                               0.63     35      0     37     72      0      0
-        """
-        try:
-            # also define working directory based on user home directory
-            with open(self.qstat_cluster) as f:
-                for line in f:
-                    data = line.split()
-                    queue_name = data[0]
-                    if queue_name in queue:
-                        queue_data = queue[queue_name]
-                        queue_data.num_cores = int(data[5])
-                        queue_data.avail_cores = int(data[4])
-
-        except Exception as e:
-            pass
 
         # Set the status bars on the bottom of the window
         self.m_statusBar1.SetStatusText('User: ' + self.username + ' on ' + viz_type + ' node ' + self.display_node, 0)
@@ -235,7 +209,7 @@ class MyWindow(GUIFrame):
 
         # create a list of default environmental variables
         init_combobox(install_dir.keys(), self.m_select_version1, default_version)
-        init_combobox(queue.keys(), self.m_select_queue, default_queue)
+        init_combobox(queue_dict.keys(), self.m_select_queue, default_queue)
 
         self.interactive_env = ",".join(["DISPLAY=" + self.display_node, "LIBGL_ALWAYS_INDIRECT=True",
                                          "LIBGL_ALWAYS_SOFTWARE=True", "GALLIUM_DRIVER=swr", "ANS_NODEPCHECK=1"])
@@ -330,13 +304,13 @@ class MyWindow(GUIFrame):
     def timer_stop(self):
         self.running = False
 
-    def select_pe(self, event):
+    def select_pe(self, _unused):
         """ Callback for the selection of parallel environment. Primarily used to set an appropriate number of cores"""
         pe_val = self.m_select_pe.Value
         core_val = pe_cores[pe_val]
         self.m_numcore.Value = str(core_val)
 
-    def select_mode(self, event):
+    def select_mode(self, _unused):
         """Callback invoked on change of the mode Pre/Post or Interactive"""
         sel = self.submit_mode_radiobox.Selection
         if sel == 0 or sel == 1:
@@ -356,11 +330,8 @@ class MyWindow(GUIFrame):
             self.advanced_options_text.Value = self.interactive_env
 
     def update_msg_list(self):
-        try:
-            self.scheduler_msg_viewlist.DeleteAllItems()
-        except:
-            return False
-
+        """Update messages on checkbox and init from file"""
+        self.scheduler_msg_viewlist.DeleteAllItems()
         for msg in self.log_data["Message List"]:
             sched = msg[3]
             if sched or self.m_checkBox_allmsg.Value:
@@ -377,28 +348,34 @@ class MyWindow(GUIFrame):
         with open(self.logfile, 'w') as fa:
             json.dump(self.log_data, fa)
 
-    def submit_batch_thread(self):  # viz-node for pre-post or submit
-        command = [self.aedt_ver + '&']
-        subprocess.call(command, shell=True)
-
     def update_cluster_load(self):
         """Update cluster load every 5s"""
-        time.sleep(5)  # this sleep is preventing disappearing of a Plot due to threading
         while self.running:
-            subprocess.call(self.qstat + ' -g c > ' + self.qstat_cluster, shell=True)
-            try:
-                # also define working directory based on user home directory
-                with open(self.qstat_cluster) as f:
-                    for line in f:
-                        data = line.split()
-                        queue_name = data[0]
-                        if queue_name in queue:
-                            queue_data = queue[queue_name]
-                            queue_data.num_cores = int(data[5])
-                            queue_data.avail_cores = int(data[4])
+            qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode("ascii", errors="ignore")
 
-            except Exception as e:
-                pass
+            """
+             Example of output of qstat -g c
+            CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
+            --------------------------------------------------------------------------------
+            all.q                             -NA-      0      0      0      0      0      0
+            dcv                               0.64     32      0      4     36      0      0
+            euc09                             0.47    742      0    218    960      0      0
+            euc09gpu                          0.00      0      0     56     56      0      0
+            euc09lm                           0.37     56      0     84    140     28      0
+            ottc01                            0.43   1040      0    276   1344      0     28
+            vnc                               0.63     35      0     37     72      0      0
+            """
+
+            for line in qstat_output.split("\n"):
+                data = line.split()
+                if len(data) <= 1:
+                    continue
+
+                queue_name = data[0]
+                if queue_name in queue_dict:
+                    queue_data = queue_dict[queue_name]
+                    queue_data.num_cores = int(data[5])
+                    queue_data.avail_cores = int(data[4])
 
             self.plotpanel.update_plot()
             time.sleep(5)
@@ -406,29 +383,24 @@ class MyWindow(GUIFrame):
     def update_process_list(self):
         """Update a list of jobs status for a user every 3s"""
         while self.running:
-            subprocess.call(self.qstat + ' > ' + self.qstat_user, shell=True)
-            try:
-                self.qstat_viewlist.DeleteAllItems()
-            except:
-                return False
-            # process_list = {}
-            # message_list = {}
-            exclude = ['VNC Deskto', 'DCV Deskto']
-            with open(self.qstat_user) as f:
-                for i, line in enumerate(f):
-                    if i > 1:
-                        PID = line[0:10].strip()
-                        # prior = line[11:18].strip()
-                        name = line[19:30].strip()
-                        user = line[30:42].strip()
-                        state = line[43:48].strip()
-                        started = line[49:68].strip()
-                        queue = line[69:99].strip()
-                        # jclass = line[100:128].strip()
-                        proc = line[129:148].strip()
+            qstat_output = subprocess.check_output(self.qstat, shell=True).decode("ascii", errors="ignore")
+            self.qstat_viewlist.DeleteAllItems()
 
-                        if name not in exclude:
-                            self.qstat_viewlist.AppendItem([PID, state, name, user, queue, proc, started])
+            exclude = ['VNC Deskto', 'DCV Deskto']
+            for i, line in enumerate(qstat_output.split("\n")):
+                if i > 1:
+                    pid = line[0:10].strip()
+                    # prior = line[11:18].strip()
+                    name = line[19:30].strip()
+                    user = line[30:42].strip()
+                    state = line[43:48].strip()
+                    started = line[49:68].strip()
+                    queue_data = line[69:99].strip()
+                    # jclass = line[100:128].strip()
+                    proc = line[129:148].strip()
+
+                    if name not in exclude:
+                        self.qstat_viewlist.AppendItem([pid, state, name, user, queue_data, proc, started])
 
             # get message texts
             for x in self.log_data["PID List"]:
@@ -452,18 +424,16 @@ class MyWindow(GUIFrame):
                             self.add_log_entry(x, 'Submit Error: ' + error_text, scheduler=True)
                     os.remove(e_file)
             time.sleep(3)
-        else:
-            self.Close()
 
-    def rmb_on_scheduler_msg_list(self, event):
+    def rmb_on_scheduler_msg_list(self, _unused):
         position = wx.ContextMenuEvent(type=wx.wxEVT_NULL)
         self.PopupMenu(ClearMsgPopupMenu(self), position.GetPosition())
 
-    def leftclick_processtable(self, event):
+    def leftclick_processtable(self, _unused):
         """On double click on process row will propose to abort running job"""
         row = self.qstat_viewlist.GetSelectedRow()
         pid = self.qstat_viewlist.GetTextValue(row, 0)
-        queue = self.qstat_viewlist.GetTextValue(row, 4)
+        queue_val = self.qstat_viewlist.GetTextValue(row, 4)
 
         dlg_qdel = wx.MessageDialog(self,
                                     "Abort Queue Process ?\n",
@@ -473,37 +443,36 @@ class MyWindow(GUIFrame):
 
         if result == wx.ID_OK:
             subprocess.call('qdel '+pid, shell=True)
-            msg = "Job on {1} cancelled from GUI".format(pid, queue)
+            msg = "Job on {1} cancelled from GUI".format(pid, queue_val)
             try:
                 self.log_data["PID List"].remove(pid)
-            except:
+            except ValueError:
                 pass
             self.add_log_entry(pid, msg, scheduler=False)
 
-    def select_queue(self, event):
-        val = self.m_select_queue.GetValue()
-        init_combobox(queue[val].parallel_env, self.m_select_pe, queue[val].default_pe)
+    def select_queue(self, _unused):
+        queue_value = self.m_select_queue.GetValue()
+        init_combobox(queue_dict[queue_value].parallel_env, self.m_select_pe, queue_dict[queue_value].default_pe)
         self.select_pe(None)
-        tst = node_config_str[val]
+        tst = node_config_str[queue_value]
         self.m_node_label.LabelText = tst
 
-    def on_advanced_check(self, event):
+    def on_advanced_check(self, _unused):
         """callback called when clicked Advanced options"""
         if self.advanced_checkbox.Value:
             self.advanced_options_text.Show()
         else:
             self.advanced_options_text.Hide()
 
-
-    def click_launch(self, event):
+    def click_launch(self, _unused):
+        """Depending on the choice of the user invokes AEDT on visual node or simply for pre/post"""
         # Scheduler data
         scheduler = '/ott/apps/uge/bin/lx-amd64/qsub'
-        queue = self.m_select_queue.Value
+        queue_val = self.m_select_queue.Value
         penv = self.m_select_pe.Value
         num_cores = self.m_numcore.Value
         ver_str = self.m_select_version1.Value
-
-        self.aedt_ver = install_dir[ver_str]
+        aedt_ver = install_dir[ver_str]
 
         env = self.advanced_options_text.Value
         if self.env_var_text.Value:
@@ -518,49 +487,38 @@ class MyWindow(GUIFrame):
             env = env[:-1]
 
         op_mode = self.submit_mode_radiobox.GetSelection()
-
-        self.console = os.path.join(self.user_dir, '.aedt', 'console')
-
         if op_mode == 2:
-
-            command = [scheduler, "-q", queue, "-pe", penv, num_cores]
+            command = [scheduler, "-q", queue_val, "-pe", penv, num_cores]
 
             if self.exclusive_usage_checkbox.Value:
-                command += ["-l", "exclusive" ]
+                command += ["-l", "exclusive"]
 
             # Interactive mode
-            command +=  ["-terse", "-v", env, "-b", "yes"]
-            command +=  [self.aedt_ver, "-machinelist", "num="+num_cores]
-
+            command += ["-terse", "-v", env, "-b", "yes"]
+            command += [aedt_ver, "-machinelist", "num="+num_cores]
 
             sh = False
             res = subprocess.check_output(command, shell=sh)
             pid = res.decode().strip()
-            msg = "Job submitted to {0} on {1}\n{2}".format(queue, scheduler, " ".join(command))
+            msg = "Job submitted to {0} on {1}\n{2}".format(queue_val, scheduler, " ".join(command))
             self.add_log_entry(pid, msg, scheduler=False)
             self.log_data["PID List"].append(pid)
         else:
-            threading.Thread(target=self.submit_batch_thread, daemon=True).start()
+            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_ver,)).start()
 
-    def click_close(self, event):
-        """on click on Close button. Should invoke separate function to close window"""
-        self.shutdown_app()
-
-    def shutdown_app(self):
-        """Exit from app"""
-        self.Destroy()
-
-    def m_update_msg_list(self, event):
+    def m_update_msg_list(self, _unused):
         self.update_msg_list()
 
-    def delete_row(self, event):
+    def delete_row(self, _unused):
+        """By clicking on Delete Row button delete row and rewrite json file with builds"""
         row = self.user_build_viewlist.GetSelectedRow()
         if row != -1:
             self.user_build_viewlist.DeleteItem(row)
             self.write_custom_build()
 
-    def add_new_build(self, event):
-        """By click on Add New Build opens file dialogue to select path and input box to set name"""
+    def add_new_build(self, _unused):
+        """By click on Add New Build opens file dialogue to select path and input box to set name.
+        At the end we update JSON file with custom builds"""
         get_dir_dialogue = wx.DirDialog(None, "Choose a Linux64 directory:",
                                         style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
         if get_dir_dialogue.ShowModal() == wx.ID_OK:
@@ -572,8 +530,8 @@ class MyWindow(GUIFrame):
 
         if "Linux64" not in path[-7:]:
             dlg = wx.MessageDialog(self,
-                                    "Your path should include and be ended by Linux64 (eg /ott/apps/ANSYSEM/Linux64)",
-                                    "Wrong path", wx.OK | wx.ICON_ERROR)
+                                   "Your path should include and be ended by Linux64 (eg /ott/apps/ANSYSEM/Linux64)",
+                                   "Wrong path", wx.OK | wx.ICON_ERROR)
             dlg.ShowModal()
             dlg.Destroy()
             return
@@ -588,8 +546,8 @@ class MyWindow(GUIFrame):
 
         if name in [None, ""] + list(self.builds_data.keys()):
             dlg = wx.MessageDialog(self,
-                                    "Name cannot be empty and not unique",
-                                    "Wrong name", wx.OK | wx.ICON_ERROR)
+                                   "Name cannot be empty and not unique",
+                                   "Wrong name", wx.OK | wx.ICON_ERROR)
             dlg.ShowModal()
             dlg.Destroy()
             return
@@ -597,6 +555,16 @@ class MyWindow(GUIFrame):
         # if all is fine add new build
         self.user_build_viewlist.AppendItem([name, path])
         self.write_custom_build()
+
+    @staticmethod
+    def _submit_batch_thread(aedt_ver):  # viz-node for pre-post or submit
+        command = [aedt_ver + '&']
+        subprocess.call(command, shell=True)
+
+    @staticmethod
+    def _shutdown_app(_unused):
+        """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
+        os.kill(os.getpid(), signal.SIGINT)
 
 
 def init_combobox(entry_list, combobox, default_value=''):

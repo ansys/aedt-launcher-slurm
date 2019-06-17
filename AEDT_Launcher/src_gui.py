@@ -275,7 +275,7 @@ class GUIFrame ( wx.Frame ):
 		self.m_panel2.SetSizer( bSizer1 )
 		self.m_panel2.Layout()
 		bSizer1.Fit( self.m_panel2 )
-		self.m_notebook2.AddPage( self.m_panel2, u"Launcher", False )
+		self.m_notebook2.AddPage( self.m_panel2, u"Launcher", True )
 		self.m_panel3 = wx.Panel( self.m_notebook2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
 		bSizer23 = wx.BoxSizer( wx.VERTICAL )
 
@@ -310,7 +310,7 @@ class GUIFrame ( wx.Frame ):
 		self.m_panel3.SetSizer( bSizer23 )
 		self.m_panel3.Layout()
 		bSizer23.Fit( self.m_panel3 )
-		self.m_notebook2.AddPage( self.m_panel3, u"User-specific builds", True )
+		self.m_notebook2.AddPage( self.m_panel3, u"User-specific builds", False )
 
 		self.m_grid1 = wx.grid.Grid( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, 0 )
 
@@ -346,7 +346,7 @@ class GUIFrame ( wx.Frame ):
 		self.Centre( wx.BOTH )
 
 		# Connect Events
-		self.Bind( wx.EVT_CLOSE, self.shutdown_app )
+		self.Bind( wx.EVT_CLOSE, self._shutdown_app )
 		self.submit_mode_radiobox.Bind( wx.EVT_RADIOBOX, self.select_mode )
 		self.m_select_queue.Bind( wx.EVT_COMBOBOX, self.select_queue )
 		self.m_select_pe.Bind( wx.EVT_COMBOBOX, self.select_pe )
@@ -355,7 +355,7 @@ class GUIFrame ( wx.Frame ):
 		self.qstat_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_ACTIVATED, self.leftclick_processtable, id = wx.ID_ANY )
 		self.m_checkBox_allmsg.Bind( wx.EVT_CHECKBOX, self.m_update_msg_list )
 		self.scheduler_msg_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_CONTEXT_MENU, self.rmb_on_scheduler_msg_list, id = wx.ID_ANY )
-		self.m_button2.Bind( wx.EVT_BUTTON, self.click_close )
+		self.m_button2.Bind( wx.EVT_BUTTON, self._shutdown_app )
 		self.delete_build_button.Bind( wx.EVT_BUTTON, self.delete_row )
 		self.add_build_button.Bind( wx.EVT_BUTTON, self.add_new_build )
 
@@ -365,7 +365,7 @@ class GUIFrame ( wx.Frame ):
 
 
 	# Virtual event handlers, overide them in your derived class
-	def shutdown_app( self, event ):
+	def _shutdown_app( self, event ):
 		event.Skip()
 
 	def select_mode( self, event ):
@@ -392,8 +392,6 @@ class GUIFrame ( wx.Frame ):
 	def rmb_on_scheduler_msg_list( self, event ):
 		event.Skip()
 
-	def click_close( self, event ):
-		event.Skip()
 
 	def delete_row( self, event ):
 		event.Skip()
