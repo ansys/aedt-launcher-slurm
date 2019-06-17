@@ -523,12 +523,15 @@ class MyWindow(GUIFrame):
 
         if op_mode == 2:
 
-            # Interactive mode
-            command = [scheduler, "-q", queue, "-pe", penv, num_cores, "-terse", "-v", env, "-b", "yes", self.aedt_ver,
-                       "-machinelist", "num="+num_cores]
+            command = [scheduler, "-q", queue, "-pe", penv, num_cores]
 
             if self.exclusive_usage_checkbox.Value:
-                command.append("-l exclusive")
+                command += ["-l", "exclusive" ]
+
+            # Interactive mode
+            command +=  ["-terse", "-v", env, "-b", "yes"]
+            command +=  [self.aedt_ver, "-machinelist", "num="+num_cores]
+
 
             sh = False
             res = subprocess.check_output(command, shell=sh)
