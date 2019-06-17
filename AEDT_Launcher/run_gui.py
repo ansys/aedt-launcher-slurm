@@ -349,7 +349,8 @@ class MyWindow(GUIFrame):
             json.dump(self.log_data, fa)
 
     def update_cluster_load(self):
-        """Update cluster load every 5s"""
+        """Update cluster load every 10s"""
+        sleep = 0.1  # need for first quick update
         while self.running:
             qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode("ascii", errors="ignore")
 
@@ -378,10 +379,12 @@ class MyWindow(GUIFrame):
                     queue_data.avail_cores = int(data[4])
 
             self.plotpanel.update_plot()
-            time.sleep(5)
+            print(sleep)
+            time.sleep(sleep)
+            sleep = 10
 
     def update_process_list(self):
-        """Update a list of jobs status for a user every 3s"""
+        """Update a list of jobs status for a user every 5s"""
         while self.running:
             qstat_output = subprocess.check_output(self.qstat, shell=True).decode("ascii", errors="ignore")
             self.qstat_viewlist.DeleteAllItems()
@@ -423,7 +426,7 @@ class MyWindow(GUIFrame):
                         if error_text != '':
                             self.add_log_entry(x, 'Submit Error: ' + error_text, scheduler=True)
                     os.remove(e_file)
-            time.sleep(3)
+            time.sleep(5)
 
     def rmb_on_scheduler_msg_list(self, _unused):
         position = wx.ContextMenuEvent(type=wx.wxEVT_NULL)
