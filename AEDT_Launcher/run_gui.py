@@ -1,5 +1,6 @@
 from src_gui import GUIFrame
 from datetime import datetime
+from tendo import singleton
 
 import signal
 import os
@@ -336,7 +337,14 @@ class MyWindow(GUIFrame):
         self.env_var_text.Value = self.default_settings["env_var"]
         self.advanced_options_text.Value = self.default_settings["advanced"]
 
-        self.select_queue("")
+        queue_value = self.queue_dropmenu.GetValue()
+        self.m_node_label.LabelText = node_config_str[queue_value]
+
+    def reset_settings(self, _unused):
+        if os.path.isfile(self.default_settings_json):
+            os.remove(self.default_settings_json)
+
+            add_message("To complete resetting please close and start again the application", "", "i")
 
     def timer_stop(self):
         self.running = False
@@ -472,11 +480,7 @@ class MyWindow(GUIFrame):
         pid = self.qstat_viewlist.GetTextValue(row, 0)
         queue_val = self.qstat_viewlist.GetTextValue(row, 4)
 
-        dlg_qdel = wx.MessageDialog(self,
-                                    "Abort Queue Process ?\n",
-                                    "Confirm Abort", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
-        result = dlg_qdel.ShowModal()
-        dlg_qdel.Destroy()
+        result = add_message("Abort Queue Process ?\n", "Confirm Abort", "?")
 
         if result == wx.ID_OK:
             subprocess.call('qdel '+pid, shell=True)
@@ -566,11 +570,8 @@ class MyWindow(GUIFrame):
             return
 
         if "Linux64" not in path[-7:]:
-            dlg = wx.MessageDialog(self,
-                                   "Your path should include and be ended by Linux64 (eg /ott/apps/ANSYSEM/Linux64)",
-                                   "Wrong path", wx.OK | wx.ICON_ERROR)
-            dlg.ShowModal()
-            dlg.Destroy()
+            add_message("Your path should include and be ended by Linux64 (eg /ott/apps/ANSYSEM/Linux64)",
+                             "Wrong path", "!")
             return
 
         get_name_dialogue = wx.TextEntryDialog(None, "Set name of a build:", value="AEDT_2019R3")
@@ -582,11 +583,7 @@ class MyWindow(GUIFrame):
             return
 
         if name in [None, ""] + list(self.builds_data.keys()):
-            dlg = wx.MessageDialog(self,
-                                   "Name cannot be empty and not unique",
-                                   "Wrong name", wx.OK | wx.ICON_ERROR)
-            dlg.ShowModal()
-            dlg.Destroy()
+            add_message("Name cannot be empty and not unique", "Wrong name", "!")
             return
 
         # if all is fine add new build
@@ -602,6 +599,21 @@ class MyWindow(GUIFrame):
     def _shutdown_app(_unused):
         """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
         os.kill(os.getpid(), signal.SIGINT)
+
+
+def add_message(message, titel="", icon="?"):
+        if icon == "?":
+            icon = wx.OK | wx.CANCEL |wx.ICON_QUESTION
+        elif icon == "!":
+            icon = wx.OK | wx.ICON_ERROR
+        else:
+            icon = wx.OK | wx.ICON_INFORMATION
+
+        dlg_qdel = wx.MessageDialog(None, message, titel, icon)
+        result = dlg_qdel.ShowModal()
+        dlg_qdel.Destroy()
+
+        return result
 
 
 def init_combobox(entry_list, combobox, default_value=''):
@@ -626,7 +638,16 @@ def init_combobox(entry_list, combobox, default_value=''):
 
 
 def main():
+    """Main function to generate UI. Validate that only one instance is opened."""
     app = wx.App()
+
+    try:
+        me = singleton.SingleInstance()  # should be assigned to "me", otherwise does not work
+    except singleton.SingleInstanceException:
+        add_message("Cannot open multiple instances. Close all launchers before you start new one",
+                    "Instance error", "!")
+        return
+
     ex = MyWindow(None)
     ex.Show()
     app.MainLoop()
