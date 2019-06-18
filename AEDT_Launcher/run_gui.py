@@ -172,7 +172,10 @@ class MyWindow(GUIFrame):
 
         # get paths
         self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
+        self.default_settings_json = os.path.join(self.user_dir, '.aedt', 'default.json')
+        
         self.builds_data = {}
+        self.default_settings = {}
 
         if self.display_node[0] == ':':
             self.display_node = self.hostname + self.display_node
@@ -209,7 +212,7 @@ class MyWindow(GUIFrame):
 
         # create a list of default environmental variables
         init_combobox(install_dir.keys(), self.m_select_version1, default_version)
-        init_combobox(queue_dict.keys(), self.m_select_queue, default_queue)
+        init_combobox(queue_dict.keys(), self.queue_dropmenu, default_queue)
 
         self.interactive_env = ",".join(["DISPLAY=" + self.display_node, "LIBGL_ALWAYS_INDIRECT=True",
                                          "LIBGL_ALWAYS_SOFTWARE=True", "GALLIUM_DRIVER=swr", "ANS_NODEPCHECK=1"])
@@ -218,7 +221,7 @@ class MyWindow(GUIFrame):
 
         self.local_env = "ANS_NODEPCHECK=1"
 
-        self.m_select_queue.Value = default_queue
+        self.queue_dropmenu.Value = default_queue
         self.select_queue(None)
 
         # Create chart
@@ -272,6 +275,12 @@ class MyWindow(GUIFrame):
         self.advanced_options_text.Hide()  # hide on start since hidden attribute is not working in wxBuilder
         self.read_custom_builds()
 
+        if os.path.isfile(self.default_settings_json):
+            try:
+                self.set_default_settings()
+            except KeyError:
+                print("Settings file was corrupted")
+
     def read_custom_builds(self):
         """Reads all specified in JSON file custom builds"""
         if os.path.isfile(self.user_build_json):
@@ -299,12 +308,42 @@ class MyWindow(GUIFrame):
         with open(self.user_build_json, "w") as file:
             json.dump(self.builds_data, file)
 
+    def save_default_settings(self, _unused):
+        self.default_settings = {
+            "mode": self.submit_mode_radiobox.Selection,
+            "queue": self.queue_dropmenu.GetValue(),
+            "parallel_env": self.pe_dropmenu.GetValue(),
+            "num_cores": self.m_numcore.Value,
+            "exclusive": self.exclusive_usage_checkbox.Value,
+            "aedt_version": self.m_select_version1.Value,
+            "env_var": self.env_var_text.Value,
+            "advanced": self.advanced_options_text.Value
+        }
+
+        with open(self.default_settings_json, "w") as file:
+            json.dump(self.default_settings, file, indent=4)
+
+    def set_default_settings(self):
+        with open(self.default_settings_json, "r") as file:
+            self.default_settings = json.load(file)
+
+        self.submit_mode_radiobox.Selection = self.default_settings["mode"]
+        self.queue_dropmenu.Value = self.default_settings["queue"]
+        self.pe_dropmenu.Value = self.default_settings["parallel_env"]
+        self.m_numcore.Value = self.default_settings["num_cores"]
+        self.exclusive_usage_checkbox.Value = self.default_settings["exclusive"]
+        self.m_select_version1.Value = self.default_settings["aedt_version"]
+        self.env_var_text.Value = self.default_settings["env_var"]
+        self.advanced_options_text.Value = self.default_settings["advanced"]
+
+        self.select_queue("")
+
     def timer_stop(self):
         self.running = False
 
     def select_pe(self, _unused):
         """ Callback for the selection of parallel environment. Primarily used to set an appropriate number of cores"""
-        pe_val = self.m_select_pe.Value
+        pe_val = self.pe_dropmenu.Value
         core_val = pe_cores[pe_val]
         self.m_numcore.Value = str(core_val)
 
@@ -312,19 +351,19 @@ class MyWindow(GUIFrame):
         """Callback invoked on change of the mode Pre/Post or Interactive"""
         sel = self.submit_mode_radiobox.Selection
         if sel == 0 or sel == 1:
-            self.m_select_queue.Enabled = False
+            self.queue_dropmenu.Enabled = False
             self.m_numcore.Enabled = False
             self.exclusive_usage_checkbox.Enabled = False
             self.m_node_label.Enabled = False
-            self.m_select_pe.Enable(False)
+            self.pe_dropmenu.Enable(False)
             self.advanced_options_text.Value = self.local_env
         else:
             # Interactive model: set default to 8 cores
-            self.m_select_queue.Enabled = True
+            self.queue_dropmenu.Enabled = True
             self.m_numcore.Enabled = True
             self.exclusive_usage_checkbox.Enabled = True
             self.m_node_label.Enabled = True
-            self.m_select_pe.Enable(True)
+            self.pe_dropmenu.Enable(True)
             self.advanced_options_text.Value = self.interactive_env
 
     def update_msg_list(self):
@@ -449,8 +488,8 @@ class MyWindow(GUIFrame):
             self.add_log_entry(pid, msg, scheduler=False)
 
     def select_queue(self, _unused):
-        queue_value = self.m_select_queue.GetValue()
-        init_combobox(queue_dict[queue_value].parallel_env, self.m_select_pe, queue_dict[queue_value].default_pe)
+        queue_value = self.queue_dropmenu.GetValue()
+        init_combobox(queue_dict[queue_value].parallel_env, self.pe_dropmenu, queue_dict[queue_value].default_pe)
         self.select_pe(None)
         tst = node_config_str[queue_value]
         self.m_node_label.LabelText = tst
@@ -466,8 +505,8 @@ class MyWindow(GUIFrame):
         """Depending on the choice of the user invokes AEDT on visual node or simply for pre/post"""
         # Scheduler data
         scheduler = '/ott/apps/uge/bin/lx-amd64/qsub'
-        queue_val = self.m_select_queue.Value
-        penv = self.m_select_pe.Value
+        queue_val = self.queue_dropmenu.Value
+        penv = self.pe_dropmenu.Value
         num_cores = self.m_numcore.Value
         ver_str = self.m_select_version1.Value
         aedt_ver = install_dir[ver_str]
