@@ -91,7 +91,6 @@ class CreatePlot(wx.Panel):
     def __init__(self, parent):
         self.parent = parent
         wx.Panel.__init__(self, parent, -1)
-        self.update_plot()
 
     def update_plot(self):
         used = []
@@ -125,6 +124,7 @@ class CreatePlot(wx.Panel):
         yrange = range(0, 100+dp, dp)
         plt.yticks(yrange, [str(i)+'%' for i in yrange])
         self.figure = plt.gcf()
+        self.figure.tight_layout()  # need for proper fit of a plot
 
         try:
             self.canvas = FigureCanvas(self.parent, -1, self.figure)
@@ -132,7 +132,7 @@ class CreatePlot(wx.Panel):
             return print("No parent for plot. Thread is not killed!")
 
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.canvas, 1, wx.TOP | wx.LEFT | wx.EXPAND)
+        sizer.Add(self.canvas, 1, wx.ALL)
         self.parent.SetSizer(sizer)
         self.parent.Fit()
 
@@ -222,8 +222,6 @@ class MyWindow(GUIFrame):
         self.select_queue(None)
 
         # Create chart
-        self.sizer = self.page_Data.GetSizer()
-        self.plot_container = self.page_Data
         self.plotpanel = CreatePlot(self.plot_container)
 
         # Setup Process Log
@@ -350,7 +348,6 @@ class MyWindow(GUIFrame):
 
     def update_cluster_load(self):
         """Update cluster load every 10s"""
-        sleep = 0.1  # need for first quick update
         while self.running:
             qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode("ascii", errors="ignore")
 
@@ -379,9 +376,7 @@ class MyWindow(GUIFrame):
                     queue_data.avail_cores = int(data[4])
 
             self.plotpanel.update_plot()
-            print(sleep)
-            time.sleep(sleep)
-            sleep = 10
+            time.sleep(10)
 
     def update_process_list(self):
         """Update a list of jobs status for a user every 5s"""
