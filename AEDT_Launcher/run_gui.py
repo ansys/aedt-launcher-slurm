@@ -92,8 +92,24 @@ class CreatePlot(wx.Panel):
     def __init__(self, parent):
         self.parent = parent
         wx.Panel.__init__(self, parent, -1)
+        self.draw_plot()
 
-    def update_plot(self):
+    def draw_plot(self):
+        """draw a plot when invoked for the first time"""
+        self.generate_plot()
+
+        try:
+            self.canvas = FigureCanvas(self.parent, -1, self.figure)
+        except RuntimeError:
+            return print("No parent for plot. Thread is not killed!")
+
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(self.canvas, 1, wx.ALL)
+        self.parent.SetSizer(self.sizer)
+        self.parent.Fit()
+
+    def generate_plot(self):
+        """collect cluster data to create usage plot"""
         used = []
         rest = []
         xes = []
@@ -109,37 +125,31 @@ class CreatePlot(wx.Panel):
 
         plt.clf()  # clear the plot to create a new one to update cluster usage
         width = 0.35  # the width of the bars: can also be len(x) sequence
-        plt.bar(xes, used, width, color='r')
-        plt.bar(xes, rest, width, bottom=used, color='g')
+        self.bar1 = plt.bar(xes, used, width, color='r')
+        self.bar2 = plt.bar(xes, rest, width, bottom=used, color='g')
 
         plt.ylabel('Loading [%]')
         plt.title('Queue Loading Summary')
 
-        # Define x axis as the discreate queue names
-        nq = len(queue_dict)
-        plt.xticks(range(0, nq), xes)
+        # Define x axis as the discrete queue names
+        plt.xticks(range(0, len(queue_dict)), xes)
         plt.margins(0.02, 0.1)
 
         # Define the y axis as a percent of total loading (20% ticks)
         dp = 20
-        yrange = range(0, 100+dp, dp)
-        plt.yticks(yrange, [str(i)+'%' for i in yrange])
+        yrange = range(0, 100 + dp, dp)
+        plt.yticks(yrange, [str(i) + '%' for i in yrange])
         self.figure = plt.gcf()
         self.figure.tight_layout()  # need for proper fit of a plot
 
-        try:
-            self.canvas = FigureCanvas(self.parent, -1, self.figure)
-        except RuntimeError:
-            return print("No parent for plot. Thread is not killed!")
-
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.canvas, 1, wx.ALL)
-        self.parent.SetSizer(sizer)
+    def update_plot(self):
+        """Replace old data by new one, Replace sizer each time"""
+        self.generate_plot()
+        self.parent.SetSizer(self.sizer, deleteOld=True)
         self.parent.Fit()
 
 
 class ClearMsgPopupMenu(wx.Menu):
-
     def __init__(self, parent):
         super(ClearMsgPopupMenu, self).__init__()
 
@@ -280,7 +290,7 @@ class MyWindow(GUIFrame):
             try:
                 self.set_default_settings()
             except KeyError:
-                print("Settings file was corrupted")
+                add_message("Settings file was corrupted", "Settings file", "!")
 
     def read_custom_builds(self):
         """Reads all specified in JSON file custom builds"""
@@ -394,81 +404,91 @@ class MyWindow(GUIFrame):
             json.dump(self.log_data, fa)
 
     def update_cluster_load(self):
-        """Update cluster load every 10s"""
+        """Update cluster load every 10s. Counter serves to check thread every 0.5 sec"""
+        counter = 20
         while self.running:
-            qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode("ascii", errors="ignore")
+            if counter % 20 == 0:
+                qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode("ascii", errors="ignore")
 
-            """
-             Example of output of qstat -g c
-            CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
-            --------------------------------------------------------------------------------
-            all.q                             -NA-      0      0      0      0      0      0
-            dcv                               0.64     32      0      4     36      0      0
-            euc09                             0.47    742      0    218    960      0      0
-            euc09gpu                          0.00      0      0     56     56      0      0
-            euc09lm                           0.37     56      0     84    140     28      0
-            ottc01                            0.43   1040      0    276   1344      0     28
-            vnc                               0.63     35      0     37     72      0      0
-            """
+                """
+                 Example of output of qstat -g c
+                CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
+                --------------------------------------------------------------------------------
+                all.q                             -NA-      0      0      0      0      0      0
+                dcv                               0.64     32      0      4     36      0      0
+                euc09                             0.47    742      0    218    960      0      0
+                euc09gpu                          0.00      0      0     56     56      0      0
+                euc09lm                           0.37     56      0     84    140     28      0
+                ottc01                            0.43   1040      0    276   1344      0     28
+                vnc                               0.63     35      0     37     72      0      0
+                """
 
-            for line in qstat_output.split("\n"):
-                data = line.split()
-                if len(data) <= 1:
-                    continue
+                for line in qstat_output.split("\n"):
+                    data = line.split()
+                    if len(data) <= 1:
+                        continue
 
-                queue_name = data[0]
-                if queue_name in queue_dict:
-                    queue_data = queue_dict[queue_name]
-                    queue_data.num_cores = int(data[5])
-                    queue_data.avail_cores = int(data[4])
+                    queue_name = data[0]
+                    if queue_name in queue_dict:
+                        queue_data = queue_dict[queue_name]
+                        queue_data.num_cores = int(data[5])
+                        queue_data.avail_cores = int(data[4])
 
-            self.plotpanel.update_plot()
-            time.sleep(10)
+                self.plotpanel.update_plot()
+                counter = 0
+
+            time.sleep(0.5)
+            counter += 1
 
     def update_process_list(self):
         """Update a list of jobs status for a user every 5s"""
+        counter = 10
         while self.running:
-            qstat_output = subprocess.check_output(self.qstat, shell=True).decode("ascii", errors="ignore")
-            self.qstat_viewlist.DeleteAllItems()
+            if counter % 10 == 0:
+                qstat_output = subprocess.check_output(self.qstat, shell=True).decode("ascii", errors="ignore")
+                self.qstat_viewlist.DeleteAllItems()
 
-            exclude = ['VNC Deskto', 'DCV Deskto']
-            for i, line in enumerate(qstat_output.split("\n")):
-                if i > 1:
-                    pid = line[0:10].strip()
-                    # prior = line[11:18].strip()
-                    name = line[19:30].strip()
-                    user = line[30:42].strip()
-                    state = line[43:48].strip()
-                    started = line[49:68].strip()
-                    queue_data = line[69:99].strip()
-                    # jclass = line[100:128].strip()
-                    proc = line[129:148].strip()
+                exclude = ['VNC Deskto', 'DCV Deskto']
+                for i, line in enumerate(qstat_output.split("\n")):
+                    if i > 1:
+                        pid = line[0:10].strip()
+                        # prior = line[11:18].strip()
+                        name = line[19:30].strip()
+                        user = line[30:42].strip()
+                        state = line[43:48].strip()
+                        started = line[49:68].strip()
+                        queue_data = line[69:99].strip()
+                        # jclass = line[100:128].strip()
+                        proc = line[129:148].strip()
 
-                    if name not in exclude:
-                        self.qstat_viewlist.AppendItem([pid, state, name, user, queue_data, proc, started])
+                        if name not in exclude:
+                            self.qstat_viewlist.AppendItem([pid, state, name, user, queue_data, proc, started])
 
-            # get message texts
-            for x in self.log_data["PID List"]:
-                o_file = os.path.join(self.user_dir, 'ansysedt.o'+x)
-                if os.path.exists(o_file):
-                    output_text = ''
-                    with open(o_file, 'r') as fi:
-                        for msgline in fi:
-                            output_text += msgline
-                        if output_text != '':
-                            self.add_log_entry(x, 'Submit Message: ' + output_text, scheduler=True)
-                    os.remove(o_file)
+                # get message texts
+                for x in self.log_data["PID List"]:
+                    o_file = os.path.join(self.user_dir, 'ansysedt.o'+x)
+                    if os.path.exists(o_file):
+                        output_text = ''
+                        with open(o_file, 'r') as fi:
+                            for msgline in fi:
+                                output_text += msgline
+                            if output_text != '':
+                                self.add_log_entry(x, 'Submit Message: ' + output_text, scheduler=True)
+                        os.remove(o_file)
 
-                e_file = os.path.join(self.user_dir, 'ansysedt.e' + x)
-                if os.path.exists(e_file):
-                    error_text = ''
-                    with open(e_file, 'r') as fi:
-                        for msgline in fi:
-                            error_text += msgline
-                        if error_text != '':
-                            self.add_log_entry(x, 'Submit Error: ' + error_text, scheduler=True)
-                    os.remove(e_file)
-            time.sleep(5)
+                    e_file = os.path.join(self.user_dir, 'ansysedt.e' + x)
+                    if os.path.exists(e_file):
+                        error_text = ''
+                        with open(e_file, 'r') as fi:
+                            for msgline in fi:
+                                error_text += msgline
+                            if error_text != '':
+                                self.add_log_entry(x, 'Submit Error: ' + error_text, scheduler=True)
+                        os.remove(e_file)
+                counter = 0
+
+            time.sleep(0.5)
+            counter += 1
 
     def rmb_on_scheduler_msg_list(self, _unused):
         position = wx.ContextMenuEvent(type=wx.wxEVT_NULL)
@@ -590,15 +610,19 @@ class MyWindow(GUIFrame):
         self.user_build_viewlist.AppendItem([name, path])
         self.write_custom_build()
 
+    def _shutdown_app(self, _unused):
+        """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
+        self.timer_stop()
+        while len(threading.enumerate()) > 1:  # possible solution to wait until all threads are dead
+            time.sleep(0.25)
+
+        signal.pthread_kill(threading.get_ident(), signal.SIGINT)
+        os.kill(os.getpid(), signal.SIGINT)
+
     @staticmethod
     def _submit_batch_thread(aedt_ver):  # viz-node for pre-post or submit
         command = [aedt_ver + '&']
         subprocess.call(command, shell=True)
-
-    @staticmethod
-    def _shutdown_app(_unused):
-        """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
-        os.kill(os.getpid(), signal.SIGINT)
 
 
 def add_message(message, titel="", icon="?"):
@@ -639,8 +663,10 @@ def init_combobox(entry_list, combobox, default_value=''):
 
 def main():
     """Main function to generate UI. Validate that only one instance is opened."""
-    app = wx.App()
+    # this 0.7 sleep prevents double open if user has single click launch in Linux and performs double click
+    time.sleep(0.7)
 
+    app = wx.App()
     try:
         me = singleton.SingleInstance()  # should be assigned to "me", otherwise does not work
     except singleton.SingleInstanceException:
