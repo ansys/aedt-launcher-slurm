@@ -65,12 +65,12 @@ class GUIFrame ( wx.Frame ):
 
 		QueueSizer.Add( self.m_staticText1, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
-		m_select_queueChoices = [ u"euc09", u"ottc01", u"euc09lm" ]
-		self.m_select_queue = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.Size( -1,-1 ), m_select_queueChoices, wx.CB_READONLY )
-		self.m_select_queue.SetSelection( 1 )
-		self.m_select_queue.SetMinSize( wx.Size( 150,-1 ) )
+		queue_dropmenuChoices = [ u"euc09", u"ottc01", u"euc09lm" ]
+		self.queue_dropmenu = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.Size( -1,-1 ), queue_dropmenuChoices, wx.CB_READONLY )
+		self.queue_dropmenu.SetSelection( 1 )
+		self.queue_dropmenu.SetMinSize( wx.Size( 150,-1 ) )
 
-		QueueSizer.Add( self.m_select_queue, 0, wx.ALIGN_CENTER|wx.ALL|wx.RIGHT, 5 )
+		QueueSizer.Add( self.queue_dropmenu, 0, wx.ALIGN_CENTER|wx.ALL|wx.RIGHT, 5 )
 
 
 		bSizer7.Add( QueueSizer, 0, wx.ALL, 5 )
@@ -84,12 +84,12 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer.Add( self.m_staticText12, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
-		m_select_peChoices = [ u"electronics-8", u"electronics-16", u"electronics-28" ]
-		self.m_select_pe = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, m_select_peChoices, wx.CB_READONLY )
-		self.m_select_pe.SetSelection( 0 )
-		self.m_select_pe.SetMinSize( wx.Size( 150,-1 ) )
+		pe_dropmenuChoices = [ u"electronics-8", u"electronics-16", u"electronics-28" ]
+		self.pe_dropmenu = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, pe_dropmenuChoices, wx.CB_READONLY )
+		self.pe_dropmenu.SetSelection( 0 )
+		self.pe_dropmenu.SetMinSize( wx.Size( 150,-1 ) )
 
-		PESizer.Add( self.m_select_pe, 0, wx.ALL, 5 )
+		PESizer.Add( self.pe_dropmenu, 0, wx.ALL, 5 )
 
 
 		bSizer7.Add( PESizer, 0, wx.ALL, 5 )
@@ -170,8 +170,9 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer11.Add( self.m_staticText1211, 0, wx.ALIGN_TOP|wx.ALL, 5 )
 
-		self.env_var_text = wx.TextCtrl( self.m_panel2, wx.ID_ANY, u"SKIP_MESHCHECK=1", wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
+		self.env_var_text = wx.TextCtrl( self.m_panel2, wx.ID_ANY, u"SKIP_MESHCHECK=0", wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
 		self.env_var_text.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
+		self.env_var_text.SetToolTip( u"Format:\nVARIABLE_NAME1=VARIABLE_VALUE1,VARIABLE_NAME2=VARIABLE_VALUE2" )
 		self.env_var_text.SetMinSize( wx.Size( 500,65 ) )
 
 		PESizer11.Add( self.env_var_text, 0, wx.ALIGN_TOP|wx.ALL, 5 )
@@ -276,6 +277,9 @@ class GUIFrame ( wx.Frame ):
 		self.save_button = wx.Button( self.m_panel2, wx.ID_ANY, u"Save settings as default", wx.DefaultPosition, wx.DefaultSize, 0 )
 		bSizer26.Add( self.save_button, 0, wx.ALL, 5 )
 
+		self.reset_button = wx.Button( self.m_panel2, wx.ID_ANY, u"Reset factory settings", wx.DefaultPosition, wx.DefaultSize, 0 )
+		bSizer26.Add( self.reset_button, 0, wx.ALL, 5 )
+
 		bSizer29 = wx.BoxSizer( wx.VERTICAL )
 
 		self.close_button = wx.Button( self.m_panel2, wx.ID_ANY, u"Close", wx.DefaultPosition, wx.DefaultSize, 0 )
@@ -367,14 +371,15 @@ class GUIFrame ( wx.Frame ):
 		# Connect Events
 		self.Bind( wx.EVT_CLOSE, self._shutdown_app )
 		self.submit_mode_radiobox.Bind( wx.EVT_RADIOBOX, self.select_mode )
-		self.m_select_queue.Bind( wx.EVT_COMBOBOX, self.select_queue )
-		self.m_select_pe.Bind( wx.EVT_COMBOBOX, self.select_pe )
+		self.queue_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_queue )
+		self.pe_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_pe )
 		self.m_button1.Bind( wx.EVT_BUTTON, self.click_launch )
 		self.advanced_checkbox.Bind( wx.EVT_CHECKBOX, self.on_advanced_check )
 		self.qstat_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_ACTIVATED, self.leftclick_processtable, id = wx.ID_ANY )
 		self.m_checkBox_allmsg.Bind( wx.EVT_CHECKBOX, self.m_update_msg_list )
 		self.scheduler_msg_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_CONTEXT_MENU, self.rmb_on_scheduler_msg_list, id = wx.ID_ANY )
 		self.save_button.Bind( wx.EVT_BUTTON, self.save_default_settings )
+		self.reset_button.Bind( wx.EVT_BUTTON, self.reset_settings )
 		self.close_button.Bind( wx.EVT_BUTTON, self._shutdown_app )
 		self.delete_build_button.Bind( wx.EVT_BUTTON, self.delete_row )
 		self.add_build_button.Bind( wx.EVT_BUTTON, self.add_new_build )
@@ -413,6 +418,9 @@ class GUIFrame ( wx.Frame ):
 		event.Skip()
 
 	def save_default_settings( self, event ):
+		event.Skip()
+
+	def reset_settings( self, event ):
 		event.Skip()
 
 
