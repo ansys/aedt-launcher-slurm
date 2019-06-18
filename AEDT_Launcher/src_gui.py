@@ -144,7 +144,7 @@ class GUIFrame ( wx.Frame ):
 		self.m_version_text1 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"AEDT Version", wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.m_version_text1.Wrap( -1 )
 
-		self.m_version_text1.SetMinSize( wx.Size( 80,-1 ) )
+		self.m_version_text1.SetMinSize( wx.Size( 95,-1 ) )
 
 		VersionSizer1.Add( self.m_version_text1, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
@@ -216,10 +216,11 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer8 = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.page_Data = wx.Panel( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
-		self.page_Data.SetMinSize( wx.Size( -1,500 ) )
+		self.plot_container = wx.Panel( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+		self.plot_container.SetMinSize( wx.Size( 640,480 ) )
+		self.plot_container.SetMaxSize( wx.Size( 640,480 ) )
 
-		bSizer8.Add( self.page_Data, 1, wx.EXPAND |wx.ALL, 5 )
+		bSizer8.Add( self.plot_container, 1, wx.ALL, 5 )
 
 		bSizer141 = wx.BoxSizer( wx.VERTICAL )
 
@@ -262,14 +263,32 @@ class GUIFrame ( wx.Frame ):
 
 		ButtonSizer = wx.BoxSizer( wx.HORIZONTAL )
 
-
-		ButtonSizer.Add( ( 0, 0), 1, 0, 5 )
-
-		self.m_button2 = wx.Button( self.m_panel2, wx.ID_ANY, u"Close", wx.DefaultPosition, wx.DefaultSize, 0 )
-		ButtonSizer.Add( self.m_button2, 0, wx.ALL, 5 )
+		bSizer28 = wx.BoxSizer( wx.VERTICAL )
 
 
-		bSizer1.Add( ButtonSizer, 0, wx.ALIGN_RIGHT|wx.ALIGN_TOP, 5 )
+		bSizer28.Add( ( 0, 0), 1, wx.EXPAND, 5 )
+
+
+		ButtonSizer.Add( bSizer28, 1, wx.ALL, 5 )
+
+		bSizer26 = wx.BoxSizer( wx.HORIZONTAL )
+
+		self.save_button = wx.Button( self.m_panel2, wx.ID_ANY, u"Save settings as default", wx.DefaultPosition, wx.DefaultSize, 0 )
+		bSizer26.Add( self.save_button, 0, wx.ALL, 5 )
+
+		bSizer29 = wx.BoxSizer( wx.VERTICAL )
+
+		self.close_button = wx.Button( self.m_panel2, wx.ID_ANY, u"Close", wx.DefaultPosition, wx.DefaultSize, 0 )
+		bSizer29.Add( self.close_button, 0, wx.ALIGN_RIGHT|wx.ALL, 5 )
+
+
+		bSizer26.Add( bSizer29, 1, wx.EXPAND, 5 )
+
+
+		ButtonSizer.Add( bSizer26, 1, wx.ALL|wx.EXPAND, 5 )
+
+
+		bSizer1.Add( ButtonSizer, 0, wx.EXPAND, 5 )
 
 
 		self.m_panel2.SetSizer( bSizer1 )
@@ -355,7 +374,8 @@ class GUIFrame ( wx.Frame ):
 		self.qstat_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_ACTIVATED, self.leftclick_processtable, id = wx.ID_ANY )
 		self.m_checkBox_allmsg.Bind( wx.EVT_CHECKBOX, self.m_update_msg_list )
 		self.scheduler_msg_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_CONTEXT_MENU, self.rmb_on_scheduler_msg_list, id = wx.ID_ANY )
-		self.m_button2.Bind( wx.EVT_BUTTON, self._shutdown_app )
+		self.save_button.Bind( wx.EVT_BUTTON, self.save_default_settings )
+		self.close_button.Bind( wx.EVT_BUTTON, self._shutdown_app )
 		self.delete_build_button.Bind( wx.EVT_BUTTON, self.delete_row )
 		self.add_build_button.Bind( wx.EVT_BUTTON, self.add_new_build )
 
@@ -390,6 +410,9 @@ class GUIFrame ( wx.Frame ):
 		event.Skip()
 
 	def rmb_on_scheduler_msg_list( self, event ):
+		event.Skip()
+
+	def save_default_settings( self, event ):
 		event.Skip()
 
 
