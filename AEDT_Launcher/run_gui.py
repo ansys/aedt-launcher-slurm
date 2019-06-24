@@ -32,6 +32,16 @@ install_dir = {
     u"2019 R2":  '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64/ansysedt'
 }
 
+# List of products
+products = {
+    u"R18.2":   'ElectronicsDesktop2017.2',
+    u"R19.0":   'ElectronicsDesktop2018.0',
+    u"R19.1":   'ElectronicsDesktop2018.1',
+    u"R19.2":   'ElectronicsDesktop2018.2',
+    u"2019 R1": 'ElectronicsDesktop2019.1',
+    u"2019 R2":  'ElectronicsDesktop2019.2'
+}
+
 
 # Define Available Queues
 class QueueData:
@@ -300,9 +310,12 @@ class MyWindow(GUIFrame):
 
             for key in self.builds_data.keys():
                 self.user_build_viewlist.AppendItem([key, self.builds_data[key]])
+                install_dir[key] = self.builds_data[key] + "/ansysedt"
+                with open(os.path.join(self.builds_data[key], "config", "ProductList.txt")) as file:
+                    products[key] = next(file).rstrip()  # get first line
 
-                # update values in version selector on 1st page
-            init_combobox(list(self.builds_data.keys()) + list(install_dir.keys()), self.m_select_version1,
+            # update values in version selector on 1st page
+            init_combobox(list(install_dir.keys()), self.m_select_version1,
                           default_version)
 
     def write_custom_build(self):
@@ -314,7 +327,7 @@ class MyWindow(GUIFrame):
             self.builds_data[self.user_build_viewlist.GetTextValue(i, 0)] = self.user_build_viewlist.GetTextValue(i, 1)
 
         # update values in version selector on 1st page
-        init_combobox(list(self.builds_data.keys()) + list(install_dir.keys()), self.m_select_version1, default_version)
+        init_combobox(list(install_dir.keys()), self.m_select_version1, default_version)
 
         with open(self.user_build_json, "w") as file:
             json.dump(self.builds_data, file)
@@ -613,6 +626,11 @@ class MyWindow(GUIFrame):
 
         # if all is fine add new build
         self.user_build_viewlist.AppendItem([name, path])
+        install_dir[name] = path + "/ansysedt"
+
+        with open(os.path.join(path, "config", "ProductList.txt")) as file:
+            products[name] = next(file).rstrip()  # get first line
+
         self.write_custom_build()
 
     def _shutdown_app(self, _unused):
@@ -624,12 +642,18 @@ class MyWindow(GUIFrame):
         signal.pthread_kill(threading.get_ident(), signal.SIGINT)
         os.kill(os.getpid(), signal.SIGINT)
 
-    @staticmethod
-    def _submit_batch_thread(aedt_ver, env):
-        """viz-node for pre-post or submit. Command example:
+    def _submit_batch_thread(self, aedt_ver, env):
+        """Configure SGE scheduler.
+        Viz-node for pre-post or submit. Command example:
         /bin/sh -c "export ANS_NODEPCHECK=1; export SKIP_MESHCHECK=0;" &&
         /ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64/ansysedt &"""
 
+        # set registry
+        command = '{} -set -ProductName {}  -FromFile "/ott/apps/software/AEDT_Launcher/sge_settings.areg"'.format(
+            aedt_ver.replace("ansysedt", "UpdateRegistry"), products[self.m_select_version1.Value])
+        subprocess.call([command], shell=True)
+
+        # invoke electronics desktop
         command = "/bin/sh -c "
         if env:
             env_vars = env.split(",")
@@ -640,7 +664,6 @@ class MyWindow(GUIFrame):
 
         command = command.replace('" "', ' ')
         command += '{} &'.format(aedt_ver)
-        print(command)
         subprocess.call([command], shell=True)
 
 
