@@ -408,7 +408,8 @@ class MyWindow(GUIFrame):
         counter = 20
         while self.running:
             if counter % 20 == 0:
-                qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode("ascii", errors="ignore")
+                qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode(
+                                                                                            "ascii", errors="ignore")
 
                 """
                  Example of output of qstat -g c
@@ -541,11 +542,15 @@ class MyWindow(GUIFrame):
 
         # verify that no double commas, spaces, etc
         env.rstrip()
-        while ",," in env:
-            env = env.replace(",,", ",")
+        if env:
+            while ",," in env:
+                env = env.replace(",,", ",")
 
-        if env[-1] == ",":
-            env = env[:-1]
+            if env[-1] == ",":
+                env = env[:-1]
+
+            if env[0] == ",":
+                env = env[1:]
 
         op_mode = self.submit_mode_radiobox.GetSelection()
         if op_mode == 2:
@@ -561,11 +566,11 @@ class MyWindow(GUIFrame):
             sh = False
             res = subprocess.check_output(command, shell=sh)
             pid = res.decode().strip()
-            msg = "Job submitted to {0} on {1}\n{2}".format(queue_val, scheduler, " ".join(command))
+            msg = "Job submitted to {0} on {1}\nSubmit Command:{2}".format(queue_val, scheduler, " ".join(command))
             self.add_log_entry(pid, msg, scheduler=False)
             self.log_data["PID List"].append(pid)
         else:
-            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_ver,)).start()
+            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_ver, env,)).start()
 
     def m_update_msg_list(self, _unused):
         self.update_msg_list()
@@ -620,9 +625,23 @@ class MyWindow(GUIFrame):
         os.kill(os.getpid(), signal.SIGINT)
 
     @staticmethod
-    def _submit_batch_thread(aedt_ver):  # viz-node for pre-post or submit
-        command = [aedt_ver + '&']
-        subprocess.call(command, shell=True)
+    def _submit_batch_thread(aedt_ver, env):
+        """viz-node for pre-post or submit. Command example:
+        /bin/sh -c "export ANS_NODEPCHECK=1; export SKIP_MESHCHECK=0;" &&
+        /ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64/ansysedt &"""
+
+        command = "/bin/sh -c "
+        if env:
+            env_vars = env.split(",")
+            for variable in env_vars:
+                command += '"export {};" '.format(variable)
+            else:
+                command += "&& "
+
+        command = command.replace('" "', ' ')
+        command += '{} &'.format(aedt_ver)
+        print(command)
+        subprocess.call([command], shell=True)
 
 
 def add_message(message, titel="", icon="?"):
