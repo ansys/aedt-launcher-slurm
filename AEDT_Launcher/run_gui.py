@@ -565,6 +565,13 @@ class MyWindow(GUIFrame):
             if env[0] == ",":
                 env = env[1:]
 
+        # disable question about participation in product improvement
+        command = ('{} -set -ProductName {} -RegistryKey ' +
+                   '"Desktop/Settings/ProjectOptions/ProductImprovementOptStatus"' +
+                   ' -RegistryValue 0 -RegistryLevel user').format(aedt_ver.replace("ansysedt", "UpdateRegistry"),
+                                                                   products[self.m_select_version1.Value])
+        subprocess.call([command], shell=True)
+
         op_mode = self.submit_mode_radiobox.GetSelection()
         if op_mode == 2:
             command = [scheduler, "-q", queue_val, "-pe", penv, num_cores]
@@ -663,6 +670,7 @@ class MyWindow(GUIFrame):
                 command += "&& "
 
         command = command.replace('" "', ' ')
+        command = command.replace(';"', '; export"')  # to print all exported variables
         command += '{} &'.format(aedt_ver)
         subprocess.call([command], shell=True)
 
