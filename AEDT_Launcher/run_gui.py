@@ -24,22 +24,26 @@ __version__ = "v2.0"
 # Simple dictionary for the versions (* at the beginning) for the default version
 default_version = u"2019 R1"
 install_dir = {
-    u"R18.2":   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64/ansysedt',
-    u"R19.0":   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64/ansysedt',
-    u"R19.1":   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64/ansysedt',
-    u"R19.2":   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64/ansysedt',
-    u"2019 R1": '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64/ansysedt',
-    u"2019 R2":  '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64/ansysedt'
+    u"R18.2":   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64',
+    u"R19.0":   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64',
+    u"R19.1":   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64',
+    u"R19.2":   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64',
+    u"2019 R1": '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64',
+    u"2019 R2":  '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64'
 }
 
-# List of products
-products = {
-    u"R18.2":   'ElectronicsDesktop2017.2',
-    u"R19.0":   'ElectronicsDesktop2018.0',
-    u"R19.1":   'ElectronicsDesktop2018.1',
-    u"R19.2":   'ElectronicsDesktop2018.2',
-    u"2019 R1": 'ElectronicsDesktop2019.1',
-    u"2019 R2":  'ElectronicsDesktop2019.2'
+# Define default number of cores for the selected PE (interactive mode)
+pe_cores = {
+    'pe_mpi_te':        4,
+    'electronics-8':    8,
+    'electronics-16':   16,
+    'electronics-20':   20,
+    'electronics-28':   28
+}
+node_config_str = {
+    'euc09':    '(20 cores, 128GB  / node)',
+    'ottc01':   '(28 cores, 128GB  / node)',
+    'euc09lm':  '(28 cores, 512GB  / node)'
 }
 
 
@@ -72,29 +76,6 @@ queue_dict = {
     u'euc09lm': QueueData(10, 0, 28, '512GB',
                           ['pe_mpi_te', 'electronics-8', 'electronics-16', 'electronics-28'], 'electronics-8')
 }
-
-# Define default number of cores for the selected PE (interactive mode)
-pe_cores = {
-    'pe_mpi_te':        4,
-    'electronics-8':    8,
-    'electronics-16':   16,
-    'electronics-20':   20,
-    'electronics-28':   28
-}
-node_config_str = {
-    'euc09':    '(20 cores, 128GB  / node)',
-    'ottc01':   '(28 cores, 128GB  / node)',
-    'euc09lm':  '(28 cores, 512GB  / node)'
-}
-
-"""
-Nice Grid Engine infos
-https://idos-wiki.unibe.ch/demo/beispiel-dokumentation/interacting-with-the-grid-engine
-Comments on parallel-environment
-pe_mpi_ti hat tight integration, d.h. der Scheduler uebernimmt die Kontrolle der slaves und eine andere
-allocation rule. Bei electronics-28 ist diese "fix" auf 28 cores eingestellt, bei pe_mpi_ti auf $fill_up
-bei nicht exklusiver Nutzung fuellt der Scheduler die Nodes bis zum Maximum
-"""
 
 
 # At start - get cluster data and store accordingly
@@ -197,6 +178,15 @@ class MyWindow(GUIFrame):
         
         self.builds_data = {}
         self.default_settings = {}
+
+        # generate list of products for registry
+        self.products = {}
+        for key in install_dir.keys():
+            with open(os.path.join(install_dir[key], "config", "ProductList.txt")) as file:
+                self.products[key] = next(file).rstrip()  # get first line
+
+        # set default project path
+        self.path_textbox.Value = os.path.join(os.environ["HOME"], "EDT_projects")
 
         if self.display_node[0] == ':':
             self.display_node = self.hostname + self.display_node
@@ -310,9 +300,9 @@ class MyWindow(GUIFrame):
 
             for key in self.builds_data.keys():
                 self.user_build_viewlist.AppendItem([key, self.builds_data[key]])
-                install_dir[key] = self.builds_data[key] + "/ansysedt"
+                install_dir[key] = self.builds_data[key]
                 with open(os.path.join(self.builds_data[key], "config", "ProductList.txt")) as file:
-                    products[key] = next(file).rstrip()  # get first line
+                    self.products[key] = next(file).rstrip()  # get first line
 
             # update values in version selector on 1st page
             init_combobox(list(install_dir.keys()), self.m_select_version1,
@@ -341,7 +331,8 @@ class MyWindow(GUIFrame):
             "exclusive": self.exclusive_usage_checkbox.Value,
             "aedt_version": self.m_select_version1.Value,
             "env_var": self.env_var_text.Value,
-            "advanced": self.advanced_options_text.Value
+            "advanced": self.advanced_options_text.Value,
+            "project_path": self.path_textbox.Value
         }
 
         with open(self.default_settings_json, "w") as file:
@@ -359,6 +350,7 @@ class MyWindow(GUIFrame):
         self.m_select_version1.Value = self.default_settings["aedt_version"]
         self.env_var_text.Value = self.default_settings["env_var"]
         self.advanced_options_text.Value = self.default_settings["advanced"]
+        self.path_textbox.Value = self.default_settings["project_path"]
 
         queue_value = self.queue_dropmenu.GetValue()
         self.m_node_label.LabelText = node_config_str[queue_value]
@@ -366,7 +358,6 @@ class MyWindow(GUIFrame):
     def reset_settings(self, _unused):
         if os.path.isfile(self.default_settings_json):
             os.remove(self.default_settings_json)
-
             add_message("To complete resetting please close and start again the application", "", "i")
 
     def timer_stop(self):
@@ -547,7 +538,7 @@ class MyWindow(GUIFrame):
         penv = self.pe_dropmenu.Value
         num_cores = self.m_numcore.Value
         ver_str = self.m_select_version1.Value
-        aedt_ver = install_dir[ver_str]
+        aedt_path = install_dir[ver_str]
 
         env = self.advanced_options_text.Value
         if self.env_var_text.Value:
@@ -565,12 +556,7 @@ class MyWindow(GUIFrame):
             if env[0] == ",":
                 env = env[1:]
 
-        # disable question about participation in product improvement
-        command = ('{} -set -ProductName {} -RegistryKey ' +
-                   '"Desktop/Settings/ProjectOptions/ProductImprovementOptStatus"' +
-                   ' -RegistryValue 0 -RegistryLevel user').format(aedt_ver.replace("ansysedt", "UpdateRegistry"),
-                                                                   products[self.m_select_version1.Value])
-        subprocess.call([command], shell=True)
+        self.set_registry(aedt_path)
 
         op_mode = self.submit_mode_radiobox.GetSelection()
         if op_mode == 2:
@@ -581,7 +567,7 @@ class MyWindow(GUIFrame):
 
             # Interactive mode
             command += ["-terse", "-v", env, "-b", "yes"]
-            command += [aedt_ver, "-machinelist", "num="+num_cores]
+            command += [os.path.join(aedt_path, "ansysedt"), "-machinelist", "num="+num_cores]
 
             sh = False
             res = subprocess.check_output(command, shell=sh)
@@ -590,7 +576,49 @@ class MyWindow(GUIFrame):
             self.add_log_entry(pid, msg, scheduler=False)
             self.log_data["PID List"].append(pid)
         else:
-            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_ver, env,)).start()
+            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env,)).start()
+
+    def set_registry(self, aedt_path):
+        registry_file = os.path.join(aedt_path, "UpdateRegistry")
+        # disable question about participation in product improvement
+        command = ('{} -set -ProductName {} -RegistryKey ' +
+                   '"Desktop/Settings/ProjectOptions/ProductImprovementOptStatus"' +
+                   ' -RegistryValue 0 -RegistryLevel user').format(registry_file,
+                                                                   self.products[self.m_select_version1.Value])
+        subprocess.call([command], shell=True)
+
+        # set installation path
+        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/InstallationDirectory"' +
+                   ' -RegistryValue {2} -RegistryLevel user').format(registry_file,
+                                                                     self.products[self.m_select_version1.Value],
+                                                                     aedt_path)
+        subprocess.call([command], shell=True)
+
+        # set project folder
+        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/ProjectDirectory"' +
+                   ' -RegistryValue {2} -RegistryLevel user').format(registry_file,
+                                                                     self.products[self.m_select_version1.Value],
+                                                                     self.path_textbox.Value)
+        subprocess.call([command], shell=True)
+
+        # disable welcome message
+        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/Settings/ProjectOptions/ShowWelcomeMsg"' +
+                   ' -RegistryValue 0 -RegistryLevel user').format(registry_file,
+                                                                   self.products[self.m_select_version1.Value])
+        subprocess.call([command], shell=True)
+
+        # set personal lib
+        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/PersonalLib" -RegistryValue ' +
+                   '"$HOME/Ansoft/Personallib" -RegistryLevel user').format(registry_file,
+                                                                            self.products[self.m_select_version1.Value])
+        subprocess.call([command], shell=True)
+
+        # set SGE scheduler
+        command = '{} -set -ProductName {}  -FromFile "/ott/apps/software/AEDT_Launcher/sge_settings.areg"'.format(
+                                                            registry_file, self.products[self.m_select_version1.Value])
+        subprocess.call([command], shell=True)
+
+
 
     def m_update_msg_list(self, _unused):
         self.update_msg_list()
@@ -636,9 +664,20 @@ class MyWindow(GUIFrame):
         install_dir[name] = path + "/ansysedt"
 
         with open(os.path.join(path, "config", "ProductList.txt")) as file:
-            products[name] = next(file).rstrip()  # get first line
+            self.products[name] = next(file).rstrip()  # get first line
 
         self.write_custom_build()
+
+    def set_project_path(self, _unused):
+        get_dir_dialogue = wx.DirDialog(None, "Choose directory:", style=wx.DD_DEFAULT_STYLE)
+        if get_dir_dialogue.ShowModal() == wx.ID_OK:
+            path = get_dir_dialogue.GetPath()
+            get_dir_dialogue.Destroy()
+        else:
+            get_dir_dialogue.Destroy()
+            return
+
+        self.path_textbox.Value = path
 
     def _shutdown_app(self, _unused):
         """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
@@ -649,16 +688,12 @@ class MyWindow(GUIFrame):
         signal.pthread_kill(threading.get_ident(), signal.SIGINT)
         os.kill(os.getpid(), signal.SIGINT)
 
-    def _submit_batch_thread(self, aedt_ver, env):
+    @staticmethod
+    def _submit_batch_thread(aedt_path, env):
         """Configure SGE scheduler.
         Viz-node for pre-post or submit. Command example:
         /bin/sh -c "export ANS_NODEPCHECK=1; export SKIP_MESHCHECK=0;" &&
         /ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64/ansysedt &"""
-
-        # set registry
-        command = '{} -set -ProductName {}  -FromFile "/ott/apps/software/AEDT_Launcher/sge_settings.areg"'.format(
-            aedt_ver.replace("ansysedt", "UpdateRegistry"), products[self.m_select_version1.Value])
-        subprocess.call([command], shell=True)
 
         # invoke electronics desktop
         command = "/bin/sh -c "
@@ -670,8 +705,8 @@ class MyWindow(GUIFrame):
                 command += "&& "
 
         command = command.replace('" "', ' ')
-        command = command.replace(';"', '; export"')  # to print all exported variables
-        command += '{} &'.format(aedt_ver)
+        # command = command.replace(';"', '; export"')  # to print all exported variables
+        command += '{} &'.format(os.path.join(aedt_path, "ansysedt"))
         subprocess.call([command], shell=True)
 
 
