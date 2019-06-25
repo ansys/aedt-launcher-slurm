@@ -24,12 +24,26 @@ __version__ = "v2.0"
 # Simple dictionary for the versions (* at the beginning) for the default version
 default_version = u"2019 R1"
 install_dir = {
-    u"R18.2":   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64/ansysedt',
-    u"R19.0":   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64/ansysedt',
-    u"R19.1":   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64/ansysedt',
-    u"R19.2":   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64/ansysedt',
-    u"2019 R1": '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64/ansysedt',
-    u"2019 R2":  '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64/ansysedt'
+    u"R18.2":   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64',
+    u"R19.0":   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64',
+    u"R19.1":   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64',
+    u"R19.2":   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64',
+    u"2019 R1": '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64',
+    u"2019 R2":  '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64'
+}
+
+# Define default number of cores for the selected PE (interactive mode)
+pe_cores = {
+    'pe_mpi_te':        4,
+    'electronics-8':    8,
+    'electronics-16':   16,
+    'electronics-20':   20,
+    'electronics-28':   28
+}
+node_config_str = {
+    'euc09':    '(20 cores, 128GB  / node)',
+    'ottc01':   '(28 cores, 128GB  / node)',
+    'euc09lm':  '(28 cores, 512GB  / node)'
 }
 
 
@@ -63,37 +77,30 @@ queue_dict = {
                           ['pe_mpi_te', 'electronics-8', 'electronics-16', 'electronics-28'], 'electronics-8')
 }
 
-# Define default number of cores for the selected PE (interactive mode)
-pe_cores = {
-    'pe_mpi_te':        4,
-    'electronics-8':    8,
-    'electronics-16':   16,
-    'electronics-20':   20,
-    'electronics-28':   28
-}
-node_config_str = {
-    'euc09':    '(20 cores, 128GB  / node)',
-    'ottc01':   '(28 cores, 128GB  / node)',
-    'euc09lm':  '(28 cores, 512GB  / node)'
-}
-
-"""
-Nice Grid Engine infos
-https://idos-wiki.unibe.ch/demo/beispiel-dokumentation/interacting-with-the-grid-engine
-Comments on parallel-environment
-pe_mpi_ti hat tight integration, d.h. der Scheduler uebernimmt die Kontrolle der slaves und eine andere
-allocation rule. Bei electronics-28 ist diese "fix" auf 28 cores eingestellt, bei pe_mpi_ti auf $fill_up
-bei nicht exklusiver Nutzung fuellt der Scheduler die Nodes bis zum Maximum
-"""
-
 
 # At start - get cluster data and store accordingly
 class CreatePlot(wx.Panel):
     def __init__(self, parent):
         self.parent = parent
         wx.Panel.__init__(self, parent, -1)
+        self.draw_plot()
 
-    def update_plot(self):
+    def draw_plot(self):
+        """draw a plot when invoked for the first time"""
+        self.generate_plot()
+
+        try:
+            self.canvas = FigureCanvas(self.parent, -1, self.figure)
+        except RuntimeError:
+            return print("No parent for plot. Thread is not killed!")
+
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(self.canvas, 1, wx.ALL)
+        self.parent.SetSizer(self.sizer)
+        self.parent.Fit()
+
+    def generate_plot(self):
+        """collect cluster data to create usage plot"""
         used = []
         rest = []
         xes = []
@@ -109,37 +116,31 @@ class CreatePlot(wx.Panel):
 
         plt.clf()  # clear the plot to create a new one to update cluster usage
         width = 0.35  # the width of the bars: can also be len(x) sequence
-        plt.bar(xes, used, width, color='r')
-        plt.bar(xes, rest, width, bottom=used, color='g')
+        self.bar1 = plt.bar(xes, used, width, color='r')
+        self.bar2 = plt.bar(xes, rest, width, bottom=used, color='g')
 
         plt.ylabel('Loading [%]')
         plt.title('Queue Loading Summary')
 
-        # Define x axis as the discreate queue names
-        nq = len(queue_dict)
-        plt.xticks(range(0, nq), xes)
+        # Define x axis as the discrete queue names
+        plt.xticks(range(0, len(queue_dict)), xes)
         plt.margins(0.02, 0.1)
 
         # Define the y axis as a percent of total loading (20% ticks)
         dp = 20
-        yrange = range(0, 100+dp, dp)
-        plt.yticks(yrange, [str(i)+'%' for i in yrange])
+        yrange = range(0, 100 + dp, dp)
+        plt.yticks(yrange, [str(i) + '%' for i in yrange])
         self.figure = plt.gcf()
         self.figure.tight_layout()  # need for proper fit of a plot
 
-        try:
-            self.canvas = FigureCanvas(self.parent, -1, self.figure)
-        except RuntimeError:
-            return print("No parent for plot. Thread is not killed!")
-
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.canvas, 1, wx.ALL)
-        self.parent.SetSizer(sizer)
+    def update_plot(self):
+        """Replace old data by new one, Replace sizer each time"""
+        self.generate_plot()
+        self.parent.SetSizer(self.sizer, deleteOld=True)
         self.parent.Fit()
 
 
 class ClearMsgPopupMenu(wx.Menu):
-
     def __init__(self, parent):
         super(ClearMsgPopupMenu, self).__init__()
 
@@ -177,6 +178,15 @@ class MyWindow(GUIFrame):
         
         self.builds_data = {}
         self.default_settings = {}
+
+        # generate list of products for registry
+        self.products = {}
+        for key in install_dir.keys():
+            with open(os.path.join(install_dir[key], "config", "ProductList.txt")) as file:
+                self.products[key] = next(file).rstrip()  # get first line
+
+        # set default project path
+        self.path_textbox.Value = os.path.join(os.environ["HOME"], "EDT_projects")
 
         if self.display_node[0] == ':':
             self.display_node = self.hostname + self.display_node
@@ -280,7 +290,7 @@ class MyWindow(GUIFrame):
             try:
                 self.set_default_settings()
             except KeyError:
-                print("Settings file was corrupted")
+                add_message("Settings file was corrupted", "Settings file", "!")
 
     def read_custom_builds(self):
         """Reads all specified in JSON file custom builds"""
@@ -290,9 +300,12 @@ class MyWindow(GUIFrame):
 
             for key in self.builds_data.keys():
                 self.user_build_viewlist.AppendItem([key, self.builds_data[key]])
+                install_dir[key] = self.builds_data[key]
+                with open(os.path.join(self.builds_data[key], "config", "ProductList.txt")) as file:
+                    self.products[key] = next(file).rstrip()  # get first line
 
-                # update values in version selector on 1st page
-            init_combobox(list(self.builds_data.keys()) + list(install_dir.keys()), self.m_select_version1,
+            # update values in version selector on 1st page
+            init_combobox(list(install_dir.keys()), self.m_select_version1,
                           default_version)
 
     def write_custom_build(self):
@@ -304,7 +317,7 @@ class MyWindow(GUIFrame):
             self.builds_data[self.user_build_viewlist.GetTextValue(i, 0)] = self.user_build_viewlist.GetTextValue(i, 1)
 
         # update values in version selector on 1st page
-        init_combobox(list(self.builds_data.keys()) + list(install_dir.keys()), self.m_select_version1, default_version)
+        init_combobox(list(install_dir.keys()), self.m_select_version1, default_version)
 
         with open(self.user_build_json, "w") as file:
             json.dump(self.builds_data, file)
@@ -318,7 +331,8 @@ class MyWindow(GUIFrame):
             "exclusive": self.exclusive_usage_checkbox.Value,
             "aedt_version": self.m_select_version1.Value,
             "env_var": self.env_var_text.Value,
-            "advanced": self.advanced_options_text.Value
+            "advanced": self.advanced_options_text.Value,
+            "project_path": self.path_textbox.Value
         }
 
         with open(self.default_settings_json, "w") as file:
@@ -336,6 +350,7 @@ class MyWindow(GUIFrame):
         self.m_select_version1.Value = self.default_settings["aedt_version"]
         self.env_var_text.Value = self.default_settings["env_var"]
         self.advanced_options_text.Value = self.default_settings["advanced"]
+        self.path_textbox.Value = self.default_settings["project_path"]
 
         queue_value = self.queue_dropmenu.GetValue()
         self.m_node_label.LabelText = node_config_str[queue_value]
@@ -343,7 +358,6 @@ class MyWindow(GUIFrame):
     def reset_settings(self, _unused):
         if os.path.isfile(self.default_settings_json):
             os.remove(self.default_settings_json)
-
             add_message("To complete resetting please close and start again the application", "", "i")
 
     def timer_stop(self):
@@ -394,81 +408,92 @@ class MyWindow(GUIFrame):
             json.dump(self.log_data, fa)
 
     def update_cluster_load(self):
-        """Update cluster load every 10s"""
+        """Update cluster load every 10s. Counter serves to check thread every 0.5 sec"""
+        counter = 20
         while self.running:
-            qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode("ascii", errors="ignore")
+            if counter % 20 == 0:
+                qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode(
+                                                                                            "ascii", errors="ignore")
 
-            """
-             Example of output of qstat -g c
-            CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
-            --------------------------------------------------------------------------------
-            all.q                             -NA-      0      0      0      0      0      0
-            dcv                               0.64     32      0      4     36      0      0
-            euc09                             0.47    742      0    218    960      0      0
-            euc09gpu                          0.00      0      0     56     56      0      0
-            euc09lm                           0.37     56      0     84    140     28      0
-            ottc01                            0.43   1040      0    276   1344      0     28
-            vnc                               0.63     35      0     37     72      0      0
-            """
+                """
+                 Example of output of qstat -g c
+                CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
+                --------------------------------------------------------------------------------
+                all.q                             -NA-      0      0      0      0      0      0
+                dcv                               0.64     32      0      4     36      0      0
+                euc09                             0.47    742      0    218    960      0      0
+                euc09gpu                          0.00      0      0     56     56      0      0
+                euc09lm                           0.37     56      0     84    140     28      0
+                ottc01                            0.43   1040      0    276   1344      0     28
+                vnc                               0.63     35      0     37     72      0      0
+                """
 
-            for line in qstat_output.split("\n"):
-                data = line.split()
-                if len(data) <= 1:
-                    continue
+                for line in qstat_output.split("\n"):
+                    data = line.split()
+                    if len(data) <= 1:
+                        continue
 
-                queue_name = data[0]
-                if queue_name in queue_dict:
-                    queue_data = queue_dict[queue_name]
-                    queue_data.num_cores = int(data[5])
-                    queue_data.avail_cores = int(data[4])
+                    queue_name = data[0]
+                    if queue_name in queue_dict:
+                        queue_data = queue_dict[queue_name]
+                        queue_data.num_cores = int(data[5])
+                        queue_data.avail_cores = int(data[4])
 
-            self.plotpanel.update_plot()
-            time.sleep(10)
+                self.plotpanel.update_plot()
+                counter = 0
+
+            time.sleep(0.5)
+            counter += 1
 
     def update_process_list(self):
         """Update a list of jobs status for a user every 5s"""
+        counter = 10
         while self.running:
-            qstat_output = subprocess.check_output(self.qstat, shell=True).decode("ascii", errors="ignore")
-            self.qstat_viewlist.DeleteAllItems()
+            if counter % 10 == 0:
+                qstat_output = subprocess.check_output(self.qstat, shell=True).decode("ascii", errors="ignore")
+                self.qstat_viewlist.DeleteAllItems()
 
-            exclude = ['VNC Deskto', 'DCV Deskto']
-            for i, line in enumerate(qstat_output.split("\n")):
-                if i > 1:
-                    pid = line[0:10].strip()
-                    # prior = line[11:18].strip()
-                    name = line[19:30].strip()
-                    user = line[30:42].strip()
-                    state = line[43:48].strip()
-                    started = line[49:68].strip()
-                    queue_data = line[69:99].strip()
-                    # jclass = line[100:128].strip()
-                    proc = line[129:148].strip()
+                exclude = ['VNC Deskto', 'DCV Deskto']
+                for i, line in enumerate(qstat_output.split("\n")):
+                    if i > 1:
+                        pid = line[0:10].strip()
+                        # prior = line[11:18].strip()
+                        name = line[19:30].strip()
+                        user = line[30:42].strip()
+                        state = line[43:48].strip()
+                        started = line[49:68].strip()
+                        queue_data = line[69:99].strip()
+                        # jclass = line[100:128].strip()
+                        proc = line[129:148].strip()
 
-                    if name not in exclude:
-                        self.qstat_viewlist.AppendItem([pid, state, name, user, queue_data, proc, started])
+                        if name not in exclude:
+                            self.qstat_viewlist.AppendItem([pid, state, name, user, queue_data, proc, started])
 
-            # get message texts
-            for x in self.log_data["PID List"]:
-                o_file = os.path.join(self.user_dir, 'ansysedt.o'+x)
-                if os.path.exists(o_file):
-                    output_text = ''
-                    with open(o_file, 'r') as fi:
-                        for msgline in fi:
-                            output_text += msgline
-                        if output_text != '':
-                            self.add_log_entry(x, 'Submit Message: ' + output_text, scheduler=True)
-                    os.remove(o_file)
+                # get message texts
+                for x in self.log_data["PID List"]:
+                    o_file = os.path.join(self.user_dir, 'ansysedt.o'+x)
+                    if os.path.exists(o_file):
+                        output_text = ''
+                        with open(o_file, 'r') as fi:
+                            for msgline in fi:
+                                output_text += msgline
+                            if output_text != '':
+                                self.add_log_entry(x, 'Submit Message: ' + output_text, scheduler=True)
+                        os.remove(o_file)
 
-                e_file = os.path.join(self.user_dir, 'ansysedt.e' + x)
-                if os.path.exists(e_file):
-                    error_text = ''
-                    with open(e_file, 'r') as fi:
-                        for msgline in fi:
-                            error_text += msgline
-                        if error_text != '':
-                            self.add_log_entry(x, 'Submit Error: ' + error_text, scheduler=True)
-                    os.remove(e_file)
-            time.sleep(5)
+                    e_file = os.path.join(self.user_dir, 'ansysedt.e' + x)
+                    if os.path.exists(e_file):
+                        error_text = ''
+                        with open(e_file, 'r') as fi:
+                            for msgline in fi:
+                                error_text += msgline
+                            if error_text != '':
+                                self.add_log_entry(x, 'Submit Error: ' + error_text, scheduler=True)
+                        os.remove(e_file)
+                counter = 0
+
+            time.sleep(0.5)
+            counter += 1
 
     def rmb_on_scheduler_msg_list(self, _unused):
         position = wx.ContextMenuEvent(type=wx.wxEVT_NULL)
@@ -513,7 +538,7 @@ class MyWindow(GUIFrame):
         penv = self.pe_dropmenu.Value
         num_cores = self.m_numcore.Value
         ver_str = self.m_select_version1.Value
-        aedt_ver = install_dir[ver_str]
+        aedt_path = install_dir[ver_str]
 
         env = self.advanced_options_text.Value
         if self.env_var_text.Value:
@@ -521,11 +546,17 @@ class MyWindow(GUIFrame):
 
         # verify that no double commas, spaces, etc
         env.rstrip()
-        while ",," in env:
-            env = env.replace(",,", ",")
+        if env:
+            while ",," in env:
+                env = env.replace(",,", ",")
 
-        if env[-1] == ",":
-            env = env[:-1]
+            if env[-1] == ",":
+                env = env[:-1]
+
+            if env[0] == ",":
+                env = env[1:]
+
+        self.set_registry(aedt_path)
 
         op_mode = self.submit_mode_radiobox.GetSelection()
         if op_mode == 2:
@@ -536,16 +567,58 @@ class MyWindow(GUIFrame):
 
             # Interactive mode
             command += ["-terse", "-v", env, "-b", "yes"]
-            command += [aedt_ver, "-machinelist", "num="+num_cores]
+            command += [os.path.join(aedt_path, "ansysedt"), "-machinelist", "num="+num_cores]
 
             sh = False
             res = subprocess.check_output(command, shell=sh)
             pid = res.decode().strip()
-            msg = "Job submitted to {0} on {1}\n{2}".format(queue_val, scheduler, " ".join(command))
+            msg = "Job submitted to {0} on {1}\nSubmit Command:{2}".format(queue_val, scheduler, " ".join(command))
             self.add_log_entry(pid, msg, scheduler=False)
             self.log_data["PID List"].append(pid)
         else:
-            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_ver,)).start()
+            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env,)).start()
+
+    def set_registry(self, aedt_path):
+        registry_file = os.path.join(aedt_path, "UpdateRegistry")
+        # disable question about participation in product improvement
+        command = ('{} -set -ProductName {} -RegistryKey ' +
+                   '"Desktop/Settings/ProjectOptions/ProductImprovementOptStatus"' +
+                   ' -RegistryValue 0 -RegistryLevel user').format(registry_file,
+                                                                   self.products[self.m_select_version1.Value])
+        subprocess.call([command], shell=True)
+
+        # set installation path
+        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/InstallationDirectory"' +
+                   ' -RegistryValue {2} -RegistryLevel user').format(registry_file,
+                                                                     self.products[self.m_select_version1.Value],
+                                                                     aedt_path)
+        subprocess.call([command], shell=True)
+
+        # set project folder
+        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/ProjectDirectory"' +
+                   ' -RegistryValue {2} -RegistryLevel user').format(registry_file,
+                                                                     self.products[self.m_select_version1.Value],
+                                                                     self.path_textbox.Value)
+        subprocess.call([command], shell=True)
+
+        # disable welcome message
+        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/Settings/ProjectOptions/ShowWelcomeMsg"' +
+                   ' -RegistryValue 0 -RegistryLevel user').format(registry_file,
+                                                                   self.products[self.m_select_version1.Value])
+        subprocess.call([command], shell=True)
+
+        # set personal lib
+        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/PersonalLib" -RegistryValue ' +
+                   '"$HOME/Ansoft/Personallib" -RegistryLevel user').format(registry_file,
+                                                                            self.products[self.m_select_version1.Value])
+        subprocess.call([command], shell=True)
+
+        # set SGE scheduler
+        command = '{} -set -ProductName {}  -FromFile "/ott/apps/software/AEDT_Launcher/sge_settings.areg"'.format(
+                                                            registry_file, self.products[self.m_select_version1.Value])
+        subprocess.call([command], shell=True)
+
+
 
     def m_update_msg_list(self, _unused):
         self.update_msg_list()
@@ -588,17 +661,53 @@ class MyWindow(GUIFrame):
 
         # if all is fine add new build
         self.user_build_viewlist.AppendItem([name, path])
+        install_dir[name] = path + "/ansysedt"
+
+        with open(os.path.join(path, "config", "ProductList.txt")) as file:
+            self.products[name] = next(file).rstrip()  # get first line
+
         self.write_custom_build()
 
-    @staticmethod
-    def _submit_batch_thread(aedt_ver):  # viz-node for pre-post or submit
-        command = [aedt_ver + '&']
-        subprocess.call(command, shell=True)
+    def set_project_path(self, _unused):
+        get_dir_dialogue = wx.DirDialog(None, "Choose directory:", style=wx.DD_DEFAULT_STYLE)
+        if get_dir_dialogue.ShowModal() == wx.ID_OK:
+            path = get_dir_dialogue.GetPath()
+            get_dir_dialogue.Destroy()
+        else:
+            get_dir_dialogue.Destroy()
+            return
+
+        self.path_textbox.Value = path
+
+    def _shutdown_app(self, _unused):
+        """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
+        self.timer_stop()
+        while len(threading.enumerate()) > 1:  # possible solution to wait until all threads are dead
+            time.sleep(0.25)
+
+        signal.pthread_kill(threading.get_ident(), signal.SIGINT)
+        os.kill(os.getpid(), signal.SIGINT)
 
     @staticmethod
-    def _shutdown_app(_unused):
-        """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
-        os.kill(os.getpid(), signal.SIGINT)
+    def _submit_batch_thread(aedt_path, env):
+        """Configure SGE scheduler.
+        Viz-node for pre-post or submit. Command example:
+        /bin/sh -c "export ANS_NODEPCHECK=1; export SKIP_MESHCHECK=0;" &&
+        /ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64/ansysedt &"""
+
+        # invoke electronics desktop
+        command = "/bin/sh -c "
+        if env:
+            env_vars = env.split(",")
+            for variable in env_vars:
+                command += '"export {};" '.format(variable)
+            else:
+                command += "&& "
+
+        command = command.replace('" "', ' ')
+        # command = command.replace(';"', '; export"')  # to print all exported variables
+        command += '{} &'.format(os.path.join(aedt_path, "ansysedt"))
+        subprocess.call([command], shell=True)
 
 
 def add_message(message, titel="", icon="?"):
@@ -639,8 +748,10 @@ def init_combobox(entry_list, combobox, default_value=''):
 
 def main():
     """Main function to generate UI. Validate that only one instance is opened."""
-    app = wx.App()
+    # this 0.7 sleep prevents double open if user has single click launch in Linux and performs double click
+    time.sleep(0.7)
 
+    app = wx.App()
     try:
         me = singleton.SingleInstance()  # should be assigned to "me", otherwise does not work
     except singleton.SingleInstanceException:
