@@ -49,10 +49,15 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer14 = wx.BoxSizer( wx.HORIZONTAL )
 
+		bSizer261 = wx.BoxSizer( wx.VERTICAL )
+
 		submit_mode_radioboxChoices = [ u"Pre- / Postprocessing", u"Job Submit", u"Interactive Session" ]
 		self.submit_mode_radiobox = wx.RadioBox( self.m_panel2, wx.ID_ANY, u"Mode", wx.DefaultPosition, wx.DefaultSize, submit_mode_radioboxChoices, 1, wx.RA_SPECIFY_COLS )
 		self.submit_mode_radiobox.SetSelection( 2 )
-		bSizer14.Add( self.submit_mode_radiobox, 0, wx.ALL, 5 )
+		bSizer261.Add( self.submit_mode_radiobox, 0, wx.ALL, 5 )
+
+
+		bSizer14.Add( bSizer261, 1, wx.EXPAND, 5 )
 
 		bSizer7 = wx.BoxSizer( wx.VERTICAL )
 
@@ -129,10 +134,27 @@ class GUIFrame ( wx.Frame ):
 		bSizer15.Add( self.exclusive_usage_checkbox, 0, wx.ALL, 5 )
 
 
-		bSizer15.Add( ( 0, 0), 1, wx.EXPAND, 5 )
+		bSizer7.Add( bSizer15, 0, wx.EXPAND, 5 )
+
+		self.m_staticText18 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Specify Project Path:", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_staticText18.Wrap( -1 )
+
+		bSizer7.Add( self.m_staticText18, 0, wx.ALL, 5 )
+
+		PESizer12 = wx.BoxSizer( wx.HORIZONTAL )
+
+		self.path_textbox = wx.TextCtrl( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
+		self.path_textbox.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
+		self.path_textbox.Enable( False )
+		self.path_textbox.SetMinSize( wx.Size( 300,30 ) )
+
+		PESizer12.Add( self.path_textbox, 0, wx.ALIGN_TOP|wx.ALL, 5 )
+
+		self.set_path_button = wx.Button( self.m_panel2, wx.ID_ANY, u"...", wx.DefaultPosition, wx.Size( 30,30 ), 0 )
+		PESizer12.Add( self.set_path_button, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
 
-		bSizer7.Add( bSizer15, 1, wx.EXPAND, 5 )
+		bSizer7.Add( PESizer12, 0, wx.EXPAND, 5 )
 
 
 		bSizer14.Add( bSizer7, 0, wx.ALL, 5 )
@@ -373,6 +395,7 @@ class GUIFrame ( wx.Frame ):
 		self.submit_mode_radiobox.Bind( wx.EVT_RADIOBOX, self.select_mode )
 		self.queue_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_queue )
 		self.pe_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_pe )
+		self.set_path_button.Bind( wx.EVT_BUTTON, self.set_project_path )
 		self.m_button1.Bind( wx.EVT_BUTTON, self.click_launch )
 		self.advanced_checkbox.Bind( wx.EVT_CHECKBOX, self.on_advanced_check )
 		self.qstat_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_ACTIVATED, self.leftclick_processtable, id = wx.ID_ANY )
@@ -400,6 +423,9 @@ class GUIFrame ( wx.Frame ):
 		event.Skip()
 
 	def select_pe( self, event ):
+		event.Skip()
+
+	def set_project_path( self, event ):
 		event.Skip()
 
 	def click_launch( self, event ):
