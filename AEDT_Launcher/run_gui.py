@@ -689,23 +689,22 @@ class MyWindow(GUIFrame):
 
     @staticmethod
     def _submit_batch_thread(aedt_path, env):
-        """Configure SGE scheduler.
+        """
+        Configure SGE scheduler.
         Viz-node for pre-post or submit. Command example:
-        /bin/sh -c "export ANS_NODEPCHECK=1; export SKIP_MESHCHECK=0;" &&
-        /ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64/ansysedt &"""
+        /bin/sh -c "export ANS_NODEPCHECK=1; export SKIP_MESHCHECK=0;
+        /ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64/ansysedt &"
+        """
 
         # invoke electronics desktop
-        command = "/bin/sh -c "
+        shell = "/bin/sh -c "
+        env_vars = ""
         if env:
-            env_vars = env.split(",")
-            for variable in env_vars:
-                command += '"export {};" '.format(variable)
-            else:
-                command += "&& "
+            for variable in env.split(","):
+                env_vars += 'export {}; '.format(variable)
 
-        command = command.replace('" "', ' ')
         # command = command.replace(';"', '; export"')  # to print all exported variables
-        command += '{} &'.format(os.path.join(aedt_path, "ansysedt"))
+        command = '{} "{}{} &"'.format(shell, env_vars, os.path.join(aedt_path, "ansysedt"))
         subprocess.call([command], shell=True)
 
 
