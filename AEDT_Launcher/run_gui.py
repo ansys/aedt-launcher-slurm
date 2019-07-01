@@ -12,6 +12,7 @@ import subprocess
 import time
 import threading
 import wx
+import shutil
 # matplotlib import block should be together
 import matplotlib
 matplotlib.use('WXAgg')
@@ -83,21 +84,7 @@ class CreatePlot(wx.Panel):
     def __init__(self, parent):
         self.parent = parent
         wx.Panel.__init__(self, parent, -1)
-        self.draw_plot()
-
-    def draw_plot(self):
-        """draw a plot when invoked for the first time"""
-        self.generate_plot()
-
-        try:
-            self.canvas = FigureCanvas(self.parent, -1, self.figure)
-        except RuntimeError:
-            return print("No parent for plot. Thread is not killed!")
-
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.sizer.Add(self.canvas, 1, wx.ALL)
-        self.parent.SetSizer(self.sizer)
-        self.parent.Fit()
+        self.update_plot()
 
     def generate_plot(self):
         """collect cluster data to create usage plot"""
@@ -136,8 +123,16 @@ class CreatePlot(wx.Panel):
     def update_plot(self):
         """Replace old data by new one, Replace sizer each time"""
         self.generate_plot()
-        self.parent.SetSizer(self.sizer, deleteOld=True)
-        self.parent.Fit()
+        try:
+            self.canvas = FigureCanvas(self.parent, -1, self.figure)
+        except RuntimeError:
+            return print("No parent for plot. Thread is not killed!")
+
+        time.sleep(0.5)  # need sleep due to big instabilities
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.canvas, 1, wx.EXPAND)
+
+        self.parent.SetSizer(sizer, deleteOld=True)
 
 
 class ClearMsgPopupMenu(wx.Menu):
@@ -266,11 +261,6 @@ class MyWindow(GUIFrame):
         self.qstat_viewlist.AppendTextColumn('Queue', width=200)
         self.qstat_viewlist.AppendTextColumn('cpu', width=30)
         self.qstat_viewlist.AppendTextColumn('Started', width=50)
-        self.running = True
-
-        # run in parallel to UI regular update of chart and process list
-        threading.Thread(target=self.update_process_list, daemon=True).start()
-        threading.Thread(target=self.update_cluster_load, daemon=True).start()
 
         # Disable Batch-mode radio button
         self.submit_mode_radiobox.EnableItem(1, False)
@@ -291,6 +281,11 @@ class MyWindow(GUIFrame):
                 self.set_default_settings()
             except KeyError:
                 add_message("Settings file was corrupted", "Settings file", "!")
+
+        # run in parallel to UI regular update of chart and process list
+        self.running = True
+        threading.Thread(target=self.update_process_list, daemon=True).start()
+        threading.Thread(target=self.update_cluster_load, daemon=True).start()
 
     def read_custom_builds(self):
         """Reads all specified in JSON file custom builds"""
@@ -409,11 +404,14 @@ class MyWindow(GUIFrame):
 
     def update_cluster_load(self):
         """Update cluster load every 10s. Counter serves to check thread every 0.5 sec"""
+        time.sleep(1)
         counter = 20
         while self.running:
             if counter % 20 == 0:
                 qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode(
                                                                                             "ascii", errors="ignore")
+                # with open("/ott/home1/mbeliaev/out.txt") as file:
+                #     qstat_output = file.read()
 
                 """
                  Example of output of qstat -g c
@@ -532,6 +530,7 @@ class MyWindow(GUIFrame):
 
     def click_launch(self, _unused):
         """Depending on the choice of the user invokes AEDT on visual node or simply for pre/post"""
+        check_ssh()
         # Scheduler data
         scheduler = '/ott/apps/uge/bin/lx-amd64/qsub'
         queue_val = self.queue_dropmenu.Value
@@ -690,24 +689,34 @@ class MyWindow(GUIFrame):
 
     @staticmethod
     def _submit_batch_thread(aedt_path, env):
-        """Configure SGE scheduler.
+        """
+        Configure SGE scheduler.
         Viz-node for pre-post or submit. Command example:
-        /bin/sh -c "export ANS_NODEPCHECK=1; export SKIP_MESHCHECK=0;" &&
-        /ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64/ansysedt &"""
+        /bin/sh -c "export ANS_NODEPCHECK=1; export SKIP_MESHCHECK=0;
+        /ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64/ansysedt &"
+        """
 
         # invoke electronics desktop
-        command = "/bin/sh -c "
+        shell = "/bin/sh -c "
+        env_vars = ""
         if env:
-            env_vars = env.split(",")
-            for variable in env_vars:
-                command += '"export {};" '.format(variable)
-            else:
-                command += "&& "
+            for variable in env.split(","):
+                env_vars += 'export {}; '.format(variable)
 
-        command = command.replace('" "', ' ')
         # command = command.replace(';"', '; export"')  # to print all exported variables
-        command += '{} &'.format(os.path.join(aedt_path, "ansysedt"))
+        command = '{} "{}{} &"'.format(shell, env_vars, os.path.join(aedt_path, "ansysedt"))
         subprocess.call([command], shell=True)
+
+
+def check_ssh():
+    """verify that all passwordless SSH are in place"""
+    ssh_path = os.path.join(os.environ["HOME"], ".ssh")
+    for file in ["authorized_keys", "config", "known_hosts"]:
+        if not os.path.isfile(os.path.join(ssh_path, file)):
+            shutil.rmtree(ssh_path)
+            proc = subprocess.Popen(["/nfs/ott/apps/admin/run_me_first.sh"], stdin=subprocess.PIPE, shell=True)
+            proc.communicate(input=b"\n\n\n")
+            break
 
 
 def add_message(message, titel="", icon="?"):
