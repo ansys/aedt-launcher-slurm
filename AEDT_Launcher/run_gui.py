@@ -1,6 +1,7 @@
 from src_gui import GUIFrame
 from datetime import datetime
 from tendo import singleton
+from collections import OrderedDict
 
 import signal
 import os
@@ -18,28 +19,30 @@ import matplotlib
 matplotlib.use('WXAgg')
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 __authors__ = "Leon Voss, Maksim Beliaev"
 __version__ = "v2.0"
 
 # Simple dictionary for the versions (* at the beginning) for the default version
 default_version = u"2019 R1"
-install_dir = {
-    u"R18.2":   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64',
-    u"R19.0":   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64',
-    u"R19.1":   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64',
-    u"R19.2":   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64',
-    u"2019 R1": '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64',
-    u"2019 R2":  '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64'
-}
+install_dir = OrderedDict([
+    (u"R18.2",   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64'),
+    (u"R19.0",   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64'),
+    (u"R19.1",   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64'),
+    (u"R19.2",   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64'),
+    (u"2019 R1", '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64'),
+    (u"2019 R2",  '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64')
+])
 
 # Define default number of cores for the selected PE (interactive mode)
 pe_cores = {
-    'pe_mpi_te':        4,
-    'electronics-8':    8,
-    'electronics-16':   16,
-    'electronics-20':   20,
-    'electronics-28':   28
+    'electronics-2': 2,
+    'electronics-4': 4,
+    'electronics-8': 8,
+    'electronics-16': 16,
+    'electronics-20': 20,
+    'electronics-28': 28
 }
 node_config_str = {
     'euc09':    '(20 cores, 128GB  / node)',
@@ -71,12 +74,83 @@ class QueueData:
 default_queue = u'euc09'
 queue_dict = {
     u'euc09': QueueData(10, 0, 20, '128GB',
-                        ['pe_mpi_te', 'electronics-8', 'electronics-16', 'electronics-20'], 'electronics-8'),
+                        ['electronics-2', 'electronics-4', 'electronics-8', 'electronics-16', 'electronics-20'],
+                        'electronics-4'),
     u'ottc01': QueueData(10, 0, 28, '128GB',
-                         ['pe_mpi_te', 'electronics-8', 'electronics-16', 'electronics-28'], 'electronics-8'),
+                         ['electronics-2', 'electronics-4', 'electronics-8', 'electronics-16', 'electronics-28'],
+                         'electronics-4'),
     u'euc09lm': QueueData(10, 0, 28, '512GB',
-                          ['pe_mpi_te', 'electronics-8', 'electronics-16', 'electronics-28'], 'electronics-8')
+                          ['electronics-2', 'electronics-4', 'electronics-8', 'electronics-16', 'electronics-28'],
+                          'electronics-4')
 }
+
+
+# create a new event to bind it and call it from subthread. UI should be changed ONLY in MAIN THREAD
+ID_COUNT = wx.NewId()
+my_SIGNAL_EVT = wx.NewEventType()
+SIGNAL_EVT = wx.PyEventBinder(my_SIGNAL_EVT, 1)
+
+
+class SignalEvent(wx.PyCommandEvent):
+    """Event to signal that we are ready to update the plot"""
+    def __init__(self, etype, eid):
+        """Creates the event object"""
+        wx.PyCommandEvent.__init__(self, etype, eid)
+
+
+class ClusterLoadUpdateThread(threading.Thread):
+    def __init__(self, parent):
+        """
+        @param parent: The gui object that should receive the value
+        """
+        threading.Thread.__init__(self)
+        self._parent = parent
+
+    def run(self):
+        """Overrides Thread.run. Don't call this directly its called internally
+        when you call Thread.start().
+
+        Gets cluster load every 10 seconds. 0.5s step is used to be able to stop subthread earlier
+        by triggering parent.running
+        """
+        counter = 20
+        while self._parent.running:
+            if counter % 20 == 0:
+                qstat_output = subprocess.check_output(self._parent.qstat + ' -g c', shell=True).decode(
+                    "ascii", errors="ignore")
+                # with open("/ott/home1/mbeliaev/out.txt") as file:
+                #     qstat_output = file.read()
+
+                """
+                 Example of output of qstat -g c
+                CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
+                --------------------------------------------------------------------------------
+                all.q                             -NA-      0      0      0      0      0      0
+                dcv                               0.64     32      0      4     36      0      0
+                euc09                             0.47    742      0    218    960      0      0
+                euc09gpu                          0.00      0      0     56     56      0      0
+                euc09lm                           0.37     56      0     84    140     28      0
+                ottc01                            0.43   1040      0    276   1344      0     28
+                vnc                               0.63     35      0     37     72      0      0
+                """
+
+                for line in qstat_output.split("\n"):
+                    data = line.split()
+                    if len(data) <= 1:
+                        continue
+
+                    queue_name = data[0]
+                    if queue_name in queue_dict:
+                        queue_data = queue_dict[queue_name]
+                        queue_data.num_cores = int(data[5])
+                        queue_data.avail_cores = int(data[4])
+
+                evt = SignalEvent(my_SIGNAL_EVT, -1)
+                wx.PostEvent(self._parent, evt)
+
+                counter = 0
+            time.sleep(0.5)
+            counter += 1
 
 
 # At start - get cluster data and store accordingly
@@ -84,10 +158,13 @@ class CreatePlot(wx.Panel):
     def __init__(self, parent):
         self.parent = parent
         wx.Panel.__init__(self, parent, -1)
+        self.fig = Figure()
         self.update_plot()
 
     def generate_plot(self):
         """collect cluster data to create usage plot"""
+        self.fig.clear()
+        self.ax = self.fig.add_subplot(1, 1, 1)
         used = []
         rest = []
         xes = []
@@ -101,30 +178,29 @@ class CreatePlot(wx.Panel):
                 queue_data.mem_per_node,
                 queue_data.avail_cores, queue_data.num_cores))
 
-        plt.clf()  # clear the plot to create a new one to update cluster usage
         width = 0.35  # the width of the bars: can also be len(x) sequence
-        self.bar1 = plt.bar(xes, used, width, color='r')
-        self.bar2 = plt.bar(xes, rest, width, bottom=used, color='g')
+        self.ax.bar(xes, used, width, color='r')
+        self.ax.bar(xes, rest, width, bottom=used, color='g')
 
-        plt.ylabel('Loading [%]')
-        plt.title('Queue Loading Summary')
+        self.ax.set_ylabel('Loading [%]')
+        self.ax.set_title('Queue Loading Summary')
 
         # Define x axis as the discrete queue names
-        plt.xticks(range(0, len(queue_dict)), xes)
-        plt.margins(0.02, 0.1)
+        self.ax.set_xticks(range(0, len(queue_dict)))
 
         # Define the y axis as a percent of total loading (20% ticks)
         dp = 20
         yrange = range(0, 100 + dp, dp)
-        plt.yticks(yrange, [str(i) + '%' for i in yrange])
-        self.figure = plt.gcf()
-        self.figure.tight_layout()  # need for proper fit of a plot
+        self.ax.set_yticks(yrange)
+        self.ax.set_yticklabels([str(i) + '%' for i in yrange])
+        self.fig.set_tight_layout(True)
 
     def update_plot(self):
         """Replace old data by new one, Replace sizer each time"""
+        self.parent.DestroyChildren()
         self.generate_plot()
         try:
-            self.canvas = FigureCanvas(self.parent, -1, self.figure)
+            self.canvas = FigureCanvas(self.parent, -1, self.fig)
         except RuntimeError:
             return print("No parent for plot. Thread is not killed!")
 
@@ -285,7 +361,18 @@ class MyWindow(GUIFrame):
         # run in parallel to UI regular update of chart and process list
         self.running = True
         threading.Thread(target=self.update_process_list, daemon=True).start()
-        threading.Thread(target=self.update_cluster_load, daemon=True).start()
+
+        # bind custom event to invoke function on_signal
+        self.Bind(SIGNAL_EVT, self.on_signal)
+
+        # start a thread to update cluster load
+        worker = ClusterLoadUpdateThread(self)
+        worker.start()
+
+    def on_signal(self, evt):
+        """Update matplotlib when receive signal from subthread.
+        Plot is updated in main thread since it is UI element"""
+        self.plotpanel.update_plot()
 
     def read_custom_builds(self):
         """Reads all specified in JSON file custom builds"""
@@ -323,7 +410,7 @@ class MyWindow(GUIFrame):
             "queue": self.queue_dropmenu.GetValue(),
             "parallel_env": self.pe_dropmenu.GetValue(),
             "num_cores": self.m_numcore.Value,
-            "exclusive": self.exclusive_usage_checkbox.Value,
+            # "exclusive": self.exclusive_usage_checkbox.Value,
             "aedt_version": self.m_select_version1.Value,
             "env_var": self.env_var_text.Value,
             "advanced": self.advanced_options_text.Value,
@@ -341,7 +428,7 @@ class MyWindow(GUIFrame):
         self.queue_dropmenu.Value = self.default_settings["queue"]
         self.pe_dropmenu.Value = self.default_settings["parallel_env"]
         self.m_numcore.Value = self.default_settings["num_cores"]
-        self.exclusive_usage_checkbox.Value = self.default_settings["exclusive"]
+        # self.exclusive_usage_checkbox.Value = self.default_settings["exclusive"]
         self.m_select_version1.Value = self.default_settings["aedt_version"]
         self.env_var_text.Value = self.default_settings["env_var"]
         self.advanced_options_text.Value = self.default_settings["advanced"]
@@ -370,7 +457,7 @@ class MyWindow(GUIFrame):
         if sel == 0 or sel == 1:
             self.queue_dropmenu.Enabled = False
             self.m_numcore.Enabled = False
-            self.exclusive_usage_checkbox.Enabled = False
+            # self.exclusive_usage_checkbox.Enabled = False
             self.m_node_label.Enabled = False
             self.pe_dropmenu.Enable(False)
             self.advanced_options_text.Value = self.local_env
@@ -378,7 +465,7 @@ class MyWindow(GUIFrame):
             # Interactive model: set default to 8 cores
             self.queue_dropmenu.Enabled = True
             self.m_numcore.Enabled = True
-            self.exclusive_usage_checkbox.Enabled = True
+            # self.exclusive_usage_checkbox.Enabled = True
             self.m_node_label.Enabled = True
             self.pe_dropmenu.Enable(True)
             self.advanced_options_text.Value = self.interactive_env
@@ -401,47 +488,6 @@ class MyWindow(GUIFrame):
         self.log_data["Message List"].append(data)
         with open(self.logfile, 'w') as fa:
             json.dump(self.log_data, fa)
-
-    def update_cluster_load(self):
-        """Update cluster load every 10s. Counter serves to check thread every 0.5 sec"""
-        time.sleep(1)
-        counter = 20
-        while self.running:
-            if counter % 20 == 0:
-                qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode(
-                                                                                            "ascii", errors="ignore")
-                # with open("/ott/home1/mbeliaev/out.txt") as file:
-                #     qstat_output = file.read()
-
-                """
-                 Example of output of qstat -g c
-                CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
-                --------------------------------------------------------------------------------
-                all.q                             -NA-      0      0      0      0      0      0
-                dcv                               0.64     32      0      4     36      0      0
-                euc09                             0.47    742      0    218    960      0      0
-                euc09gpu                          0.00      0      0     56     56      0      0
-                euc09lm                           0.37     56      0     84    140     28      0
-                ottc01                            0.43   1040      0    276   1344      0     28
-                vnc                               0.63     35      0     37     72      0      0
-                """
-
-                for line in qstat_output.split("\n"):
-                    data = line.split()
-                    if len(data) <= 1:
-                        continue
-
-                    queue_name = data[0]
-                    if queue_name in queue_dict:
-                        queue_data = queue_dict[queue_name]
-                        queue_data.num_cores = int(data[5])
-                        queue_data.avail_cores = int(data[4])
-
-                self.plotpanel.update_plot()
-                counter = 0
-
-            time.sleep(0.5)
-            counter += 1
 
     def update_process_list(self):
         """Update a list of jobs status for a user every 5s"""
@@ -503,7 +549,7 @@ class MyWindow(GUIFrame):
         pid = self.qstat_viewlist.GetTextValue(row, 0)
         queue_val = self.qstat_viewlist.GetTextValue(row, 4)
 
-        result = add_message("Abort Queue Process ?\n", "Confirm Abort", "?")
+        result = add_message("Abort Queue Process {}?\n".format(pid), "Confirm Abort", "?")
 
         if result == wx.ID_OK:
             subprocess.call('qdel '+pid, shell=True)
@@ -561,8 +607,8 @@ class MyWindow(GUIFrame):
         if op_mode == 2:
             command = [scheduler, "-q", queue_val, "-pe", penv, num_cores]
 
-            if self.exclusive_usage_checkbox.Value:
-                command += ["-l", "exclusive"]
+            # if self.exclusive_usage_checkbox.Value:
+            #     command += ["-l", "exclusive"]
 
             # Interactive mode
             command += ["-terse", "-v", env, "-b", "yes"]
@@ -711,7 +757,7 @@ class MyWindow(GUIFrame):
 def check_ssh():
     """verify that all passwordless SSH are in place"""
     ssh_path = os.path.join(os.environ["HOME"], ".ssh")
-    for file in ["authorized_keys", "config", "known_hosts"]:
+    for file in ["authorized_keys", "config"]:
         if not os.path.isfile(os.path.join(ssh_path, file)):
             shutil.rmtree(ssh_path)
             proc = subprocess.Popen(["/nfs/ott/apps/admin/run_me_first.sh"], stdin=subprocess.PIPE, shell=True)
@@ -720,18 +766,18 @@ def check_ssh():
 
 
 def add_message(message, titel="", icon="?"):
-        if icon == "?":
-            icon = wx.OK | wx.CANCEL |wx.ICON_QUESTION
-        elif icon == "!":
-            icon = wx.OK | wx.ICON_ERROR
-        else:
-            icon = wx.OK | wx.ICON_INFORMATION
+    if icon == "?":
+        icon = wx.OK | wx.CANCEL | wx.ICON_QUESTION
+    elif icon == "!":
+        icon = wx.OK | wx.ICON_ERROR
+    else:
+        icon = wx.OK | wx.ICON_INFORMATION
 
-        dlg_qdel = wx.MessageDialog(None, message, titel, icon)
-        result = dlg_qdel.ShowModal()
-        dlg_qdel.Destroy()
+    dlg_qdel = wx.MessageDialog(None, message, titel, icon)
+    result = dlg_qdel.ShowModal()
+    dlg_qdel.Destroy()
 
-        return result
+    return result
 
 
 def init_combobox(entry_list, combobox, default_value=''):
@@ -745,10 +791,9 @@ def init_combobox(entry_list, combobox, default_value=''):
     Outputs
     :return: None
     """
-    values = sorted(entry_list)
     combobox.Clear()
     index = 0
-    for i, v in enumerate(values):
+    for i, v in enumerate(list(entry_list)):
         if v == default_value:
             index = i
         combobox.Append(v)

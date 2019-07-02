@@ -128,11 +128,6 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer15 = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.exclusive_usage_checkbox = wx.CheckBox( self.m_panel2, wx.ID_ANY, u"Exclusive usage", wx.DefaultPosition, wx.DefaultSize, 0 )
-		self.exclusive_usage_checkbox.SetMinSize( wx.Size( 150,-1 ) )
-
-		bSizer15.Add( self.exclusive_usage_checkbox, 0, wx.ALL, 5 )
-
 
 		bSizer7.Add( bSizer15, 0, wx.EXPAND, 5 )
 
@@ -170,9 +165,9 @@ class GUIFrame ( wx.Frame ):
 
 		VersionSizer1.Add( self.m_version_text1, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
-		m_select_version1Choices = [ u"R18.2", u"R19.0", u"R19.1", u"R19.2", u"v2019 R1" ]
-		self.m_select_version1 = wx.ComboBox( self.m_panel2, wx.ID_ANY, u"R19.0", wx.DefaultPosition, wx.Size( -1,-1 ), m_select_version1Choices, wx.CB_READONLY|wx.CB_SORT )
-		self.m_select_version1.SetSelection( 4 )
+		m_select_version1Choices = []
+		self.m_select_version1 = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.Size( -1,-1 ), m_select_version1Choices, wx.CB_READONLY )
+		self.m_select_version1.SetSelection( 0 )
 		self.m_select_version1.SetMinSize( wx.Size( 150,-1 ) )
 
 		VersionSizer1.Add( self.m_select_version1, 0, wx.ALL, 5 )
