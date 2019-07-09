@@ -10,8 +10,8 @@
 import wx
 import wx.xrc
 import wx.aui
-import wx.dataview
 import wx.grid
+import wx.dataview
 
 ###########################################################################
 ## Class GUIFrame
@@ -20,7 +20,7 @@ import wx.grid
 class GUIFrame ( wx.Frame ):
 
 	def __init__( self, parent ):
-		wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = u"AEDT Launcher", pos = wx.DefaultPosition, size = wx.Size( 1395,882 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
+		wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = u"AEDT Launcher", pos = wx.DefaultPosition, size = wx.Size( 1300,882 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
 
 		self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
 		self.m_mgr = wx.aui.AuiManager()
@@ -51,9 +51,9 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer261 = wx.BoxSizer( wx.VERTICAL )
 
-		submit_mode_radioboxChoices = [ u"Pre- / Postprocessing", u"Job Submit", u"Interactive Session" ]
+		submit_mode_radioboxChoices = [ u"Pre- / Postprocessing", u"Interactive Session" ]
 		self.submit_mode_radiobox = wx.RadioBox( self.m_panel2, wx.ID_ANY, u"Mode", wx.DefaultPosition, wx.DefaultSize, submit_mode_radioboxChoices, 1, wx.RA_SPECIFY_COLS )
-		self.submit_mode_radiobox.SetSelection( 2 )
+		self.submit_mode_radiobox.SetSelection( 1 )
 		bSizer261.Add( self.submit_mode_radiobox, 0, wx.ALL, 5 )
 
 
@@ -126,15 +126,31 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer7.Add( CoreSizer, 0, wx.ALL, 5 )
 
-		bSizer15 = wx.BoxSizer( wx.HORIZONTAL )
+		reserved_sizer = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.exclusive_usage_checkbox = wx.CheckBox( self.m_panel2, wx.ID_ANY, u"Exclusive usage", wx.DefaultPosition, wx.DefaultSize, 0 )
-		self.exclusive_usage_checkbox.SetMinSize( wx.Size( 150,-1 ) )
+		self.reserved_checkbox = wx.CheckBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.reserved_checkbox.SetFont( wx.Font( wx.NORMAL_FONT.GetPointSize(), wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
+		self.reserved_checkbox.SetMinSize( wx.Size( 20,-1 ) )
+		self.reserved_checkbox.SetMaxSize( wx.Size( 20,-1 ) )
 
-		bSizer15.Add( self.exclusive_usage_checkbox, 0, wx.ALL, 5 )
+		reserved_sizer.Add( self.reserved_checkbox, 0, wx.ALL, 5 )
+
+		self.m_staticText121111 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Reservation ID", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
+		self.m_staticText121111.Wrap( -1 )
+
+		self.m_staticText121111.SetMinSize( wx.Size( 90,-1 ) )
+
+		reserved_sizer.Add( self.m_staticText121111, 0, wx.ALL, 5 )
+
+		self.reservation_id_text = wx.TextCtrl( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
+		self.reservation_id_text.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
+		self.reservation_id_text.SetMinSize( wx.Size( 170,25 ) )
+		self.reservation_id_text.SetMaxSize( wx.Size( 170,25 ) )
+
+		reserved_sizer.Add( self.reservation_id_text, 0, wx.ALIGN_TOP|wx.ALL, 5 )
 
 
-		bSizer7.Add( bSizer15, 0, wx.EXPAND, 5 )
+		bSizer7.Add( reserved_sizer, 1, wx.EXPAND, 5 )
 
 		self.m_staticText18 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Specify Project Path:", wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.m_staticText18.Wrap( -1 )
@@ -170,9 +186,9 @@ class GUIFrame ( wx.Frame ):
 
 		VersionSizer1.Add( self.m_version_text1, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
-		m_select_version1Choices = [ u"R18.2", u"R19.0", u"R19.1", u"R19.2", u"v2019 R1" ]
-		self.m_select_version1 = wx.ComboBox( self.m_panel2, wx.ID_ANY, u"R19.0", wx.DefaultPosition, wx.Size( -1,-1 ), m_select_version1Choices, wx.CB_READONLY|wx.CB_SORT )
-		self.m_select_version1.SetSelection( 4 )
+		m_select_version1Choices = []
+		self.m_select_version1 = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.Size( -1,-1 ), m_select_version1Choices, wx.CB_READONLY )
+		self.m_select_version1.SetSelection( 0 )
 		self.m_select_version1.SetMinSize( wx.Size( 150,-1 ) )
 
 		VersionSizer1.Add( self.m_select_version1, 0, wx.ALL, 5 )
@@ -192,7 +208,7 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer11.Add( self.m_staticText1211, 0, wx.ALIGN_TOP|wx.ALL, 5 )
 
-		self.env_var_text = wx.TextCtrl( self.m_panel2, wx.ID_ANY, u"SKIP_MESHCHECK=0", wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
+		self.env_var_text = wx.TextCtrl( self.m_panel2, wx.ID_ANY, u"PRESERVE_SOLVER_FILES=0, SKIP_MESHCHECK=0", wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
 		self.env_var_text.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
 		self.env_var_text.SetToolTip( u"Format:\nVARIABLE_NAME1=VARIABLE_VALUE1,VARIABLE_NAME2=VARIABLE_VALUE2" )
 		self.env_var_text.SetMinSize( wx.Size( 500,65 ) )
@@ -239,11 +255,38 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer8 = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.plot_container = wx.Panel( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
-		self.plot_container.SetMinSize( wx.Size( 640,480 ) )
-		self.plot_container.SetMaxSize( wx.Size( 640,480 ) )
+		bSizer1411 = wx.BoxSizer( wx.VERTICAL )
 
-		bSizer8.Add( self.plot_container, 1, wx.ALL, 5 )
+		self.load_grid = wx.grid.Grid( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, 0 )
+
+		# Grid
+		self.load_grid.CreateGrid( 3, 5 )
+		self.load_grid.EnableEditing( False )
+		self.load_grid.EnableGridLines( True )
+		self.load_grid.EnableDragGridSize( False )
+		self.load_grid.SetMargins( 0, 0 )
+
+		# Columns
+		self.load_grid.EnableDragColMove( False )
+		self.load_grid.EnableDragColSize( True )
+		self.load_grid.SetColLabelSize( 30 )
+		self.load_grid.SetColLabelAlignment( wx.ALIGN_CENTER, wx.ALIGN_CENTER )
+
+		# Rows
+		self.load_grid.EnableDragRowSize( True )
+		self.load_grid.SetRowLabelSize( 80 )
+		self.load_grid.SetRowLabelAlignment( wx.ALIGN_CENTER, wx.ALIGN_CENTER )
+
+		# Label Appearance
+
+		# Cell Defaults
+		self.load_grid.SetDefaultCellBackgroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_BTNHIGHLIGHT ) )
+		self.load_grid.SetDefaultCellFont( wx.Font( wx.NORMAL_FONT.GetPointSize(), wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
+		self.load_grid.SetDefaultCellAlignment( wx.ALIGN_CENTER, wx.ALIGN_TOP )
+		bSizer1411.Add( self.load_grid, 0, wx.ALL, 5 )
+
+
+		bSizer8.Add( bSizer1411, 1, wx.EXPAND, 5 )
 
 		bSizer141 = wx.BoxSizer( wx.VERTICAL )
 
@@ -395,6 +438,7 @@ class GUIFrame ( wx.Frame ):
 		self.submit_mode_radiobox.Bind( wx.EVT_RADIOBOX, self.select_mode )
 		self.queue_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_queue )
 		self.pe_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_pe )
+		self.reserved_checkbox.Bind( wx.EVT_CHECKBOX, self.on_reserve_check )
 		self.set_path_button.Bind( wx.EVT_BUTTON, self.set_project_path )
 		self.m_button1.Bind( wx.EVT_BUTTON, self.click_launch )
 		self.advanced_checkbox.Bind( wx.EVT_CHECKBOX, self.on_advanced_check )
@@ -423,6 +467,9 @@ class GUIFrame ( wx.Frame ):
 		event.Skip()
 
 	def select_pe( self, event ):
+		event.Skip()
+
+	def on_reserve_check( self, event ):
 		event.Skip()
 
 	def set_project_path( self, event ):
