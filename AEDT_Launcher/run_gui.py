@@ -1,6 +1,9 @@
 from src_gui import GUIFrame
 from datetime import datetime
 from tendo import singleton
+from collections import OrderedDict
+
+import xml.etree.ElementTree as ET
 
 import signal
 import os
@@ -12,34 +15,33 @@ import subprocess
 import time
 import threading
 import wx
+import wx.dataview
+import wx._core
 import shutil
-# matplotlib import block should be together
-import matplotlib
-matplotlib.use('WXAgg')
-from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-import matplotlib.pyplot as plt
+import re
 
 __authors__ = "Leon Voss, Maksim Beliaev"
 __version__ = "v2.0"
 
 # Simple dictionary for the versions (* at the beginning) for the default version
 default_version = u"2019 R1"
-install_dir = {
-    u"R18.2":   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64',
-    u"R19.0":   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64',
-    u"R19.1":   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64',
-    u"R19.2":   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64',
-    u"2019 R1": '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64',
-    u"2019 R2":  '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64'
-}
+install_dir = OrderedDict([
+    (u"R18.2",   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64'),
+    (u"R19.0",   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64'),
+    (u"R19.1",   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64'),
+    (u"R19.2",   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64'),
+    (u"2019 R1", '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64'),
+    (u"2019 R2",  '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64')
+])
 
 # Define default number of cores for the selected PE (interactive mode)
 pe_cores = {
-    'pe_mpi_te':        4,
-    'electronics-8':    8,
-    'electronics-16':   16,
-    'electronics-20':   20,
-    'electronics-28':   28
+    'electronics-2': 2,
+    'electronics-4': 4,
+    'electronics-8': 8,
+    'electronics-16': 16,
+    'electronics-20': 20,
+    'electronics-28': 28
 }
 node_config_str = {
     'euc09':    '(20 cores, 128GB  / node)',
@@ -48,91 +50,33 @@ node_config_str = {
 }
 
 
-# Define Available Queues
-class QueueData:
-    def __init__(self, num_cores, avail_cores, cores_per_node, mem_per_node, parallel_env, default_pe):
-        self.num_cores = num_cores
-        self.avail_cores = avail_cores
-        self.cores_per_node = cores_per_node
-        self.mem_per_node = mem_per_node
-        self.parallel_env = parallel_env
-        self.default_pe = default_pe
-
-    def num_nodes(self):
-        return str(int(self.num_cores / self.cores_per_node))
-
-    def available(self):
-        return float(self.avail_cores) / float(self.num_cores) * 100.0
-
-    def used_cpu(self):
-        return 100 - self.available()
-
-
 default_queue = u'euc09'
 queue_dict = {
-    u'euc09': QueueData(10, 0, 20, '128GB',
-                        ['pe_mpi_te', 'electronics-8', 'electronics-16', 'electronics-20'], 'electronics-8'),
-    u'ottc01': QueueData(10, 0, 28, '128GB',
-                         ['pe_mpi_te', 'electronics-8', 'electronics-16', 'electronics-28'], 'electronics-8'),
-    u'euc09lm': QueueData(10, 0, 28, '512GB',
-                          ['pe_mpi_te', 'electronics-8', 'electronics-16', 'electronics-28'], 'electronics-8')
+  "euc09": {"total_cores": 100,
+            "avail_cores": 0,
+            "used_cores": 100,
+            "reserved_cores": 0,
+            "failed_cores": 0,
+            "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8', 'electronics-16', 'electronics-20'],
+            "default_pe": 'electronics-4'
+            },
+  "ottc01": {"total_cores": 100,
+             "avail_cores": 0,
+             "used_cores": 100,
+             "reserved_cores": 0,
+             "failed_cores": 0,
+             "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8', 'electronics-16', 'electronics-28'],
+             "default_pe": 'electronics-4'
+             },
+  "euc09lm": {"total_cores": 100,
+              "avail_cores": 0,
+              "used_cores": 100,
+              "reserved_cores": 0,
+              "failed_cores": 0,
+              "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8', 'electronics-16', 'electronics-28'],
+              "default_pe": 'electronics-4'
+              }
 }
-
-
-# At start - get cluster data and store accordingly
-class CreatePlot(wx.Panel):
-    def __init__(self, parent):
-        self.parent = parent
-        wx.Panel.__init__(self, parent, -1)
-        self.update_plot()
-
-    def generate_plot(self):
-        """collect cluster data to create usage plot"""
-        used = []
-        rest = []
-        xes = []
-        for queue_name in queue_dict:
-            queue_data = queue_dict[queue_name]
-            used.append(queue_data.used_cpu())
-            rest.append(queue_data.available())
-            xes.append('{}: {} Nodes\n{} cores/node {}\nFree cores: {}/{}'.format(
-                queue_name, queue_data.num_nodes(),
-                queue_data.cores_per_node,
-                queue_data.mem_per_node,
-                queue_data.avail_cores, queue_data.num_cores))
-
-        plt.clf()  # clear the plot to create a new one to update cluster usage
-        width = 0.35  # the width of the bars: can also be len(x) sequence
-        self.bar1 = plt.bar(xes, used, width, color='r')
-        self.bar2 = plt.bar(xes, rest, width, bottom=used, color='g')
-
-        plt.ylabel('Loading [%]')
-        plt.title('Queue Loading Summary')
-
-        # Define x axis as the discrete queue names
-        plt.xticks(range(0, len(queue_dict)), xes)
-        plt.margins(0.02, 0.1)
-
-        # Define the y axis as a percent of total loading (20% ticks)
-        dp = 20
-        yrange = range(0, 100 + dp, dp)
-        plt.yticks(yrange, [str(i) + '%' for i in yrange])
-        self.figure = plt.gcf()
-        self.figure.tight_layout()  # need for proper fit of a plot
-
-    def update_plot(self):
-        """Replace old data by new one, Replace sizer each time"""
-        self.generate_plot()
-        try:
-            self.canvas = FigureCanvas(self.parent, -1, self.figure)
-        except RuntimeError:
-            return print("No parent for plot. Thread is not killed!")
-
-        time.sleep(0.5)  # need sleep due to big instabilities
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.canvas, 1, wx.EXPAND)
-
-        self.parent.SetSizer(sizer, deleteOld=True)
 
 
 class ClearMsgPopupMenu(wx.Menu):
@@ -153,6 +97,95 @@ class ClearMsgPopupMenu(wx.Menu):
 
         if os.path.isfile(self.parent.logfile):
             os.remove(self.parent.logfile)
+
+
+# create a new event to bind it and call it from subthread. UI should be changed ONLY in MAIN THREAD
+ID_COUNT = wx.NewId()
+my_SIGNAL_EVT = wx.NewEventType()
+SIGNAL_EVT = wx.PyEventBinder(my_SIGNAL_EVT, 1)
+
+
+class SignalEvent(wx.PyCommandEvent):
+    """Event to signal that we are ready to update the plot"""
+    def __init__(self, etype, eid):
+        """Creates the event object"""
+        wx.PyCommandEvent.__init__(self, etype, eid)
+
+
+class ClusterLoadUpdateThread(threading.Thread):
+    def __init__(self, parent):
+        """
+        @param parent: The gui object that should receive the value
+        """
+        threading.Thread.__init__(self)
+        self._parent = parent
+
+    def run(self):
+        """Overrides Thread.run. Don't call this directly its called internally
+        when you call Thread.start().
+
+        Gets cluster load every 60 seconds. 0.5s step is used to be able to stop subthread earlier
+        by triggering parent.running
+        """
+        counter = 120
+        while self._parent.running:
+            if counter % 120 == 0:
+                xml_file = os.path.join(self._parent.user_dir, '.aedt', "data.xml")
+                out_file = os.path.join(self._parent.user_dir, '.aedt', "dump.txt")
+                command = "java -jar /ott/apps/software/AEDT_Launcher/overwatch.jar -xmlpath {} >& {}".format(xml_file,
+                                                                                                              out_file)
+                subprocess.call(command, shell=True)
+                with open(xml_file, "r") as file:
+                    data = file.read()
+                q_statistics = ET.fromstring(data)
+
+                """
+                 Example of output of qstat -g c
+                CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
+                --------------------------------------------------------------------------------
+                all.q                             -NA-      0      0      0      0      0      0
+                dcv                               0.64     32      0      4     36      0      0
+                euc09                             0.47    742      0    218    960      0      0
+                euc09gpu                          0.00      0      0     56     56      0      0
+                euc09lm                           0.37     56      0     84    140     28      0
+                ottc01                            0.43   1040      0    276   1344      0     28
+                vnc                               0.63     35      0     37     72      0      0
+                """
+
+                for queue_elem in q_statistics.findall("Queues/Queue"):
+                    queue_name = queue_elem.get("name")
+                    if queue_name in ["euc09", "ottc01", "euc09lm"]:
+                        total_cores = 0
+                        used_cores = 0
+                        reserved_cores = 0
+                        failed_cores = 0
+                        for host in queue_elem.findall("Hosts/Host"):
+                            total = host.find("Slots/Total").text
+                            total_cores += int(total)
+
+                            if host.find("State").text in ["E", "d", "D", "s", "S", "u"]:
+                                failed_cores += int(total)
+                            elif int(host.find("Slots/Reserved").text) > 0:
+                                reserved_cores += int(total)
+                            elif host.find("Exclusive").text == "true":
+                                used_cores += int(total)
+                            else:
+                                used_cores += int(host.find("Slots/Used").text)
+
+                        available_cores = total_cores - failed_cores - reserved_cores - used_cores
+
+                        queue_dict[queue_name]["total_cores"] = total_cores
+                        queue_dict[queue_name]["used_cores"] = used_cores
+                        queue_dict[queue_name]["failed_cores"] = failed_cores
+                        queue_dict[queue_name]["reserved_cores"] = reserved_cores
+                        queue_dict[queue_name]["avail_cores"] = available_cores
+
+                evt = SignalEvent(my_SIGNAL_EVT, -1)
+                wx.PostEvent(self._parent, evt)
+
+                counter = 0
+            time.sleep(0.5)
+            counter += 1
 
 
 class MyWindow(GUIFrame):
@@ -230,9 +263,6 @@ class MyWindow(GUIFrame):
         self.queue_dropmenu.Value = default_queue
         self.select_queue(None)
 
-        # Create chart
-        self.plotpanel = CreatePlot(self.plot_container)
-
         # Setup Process Log
         self.scheduler_msg_viewlist.AppendTextColumn('Timestamp', width=140)
         self.scheduler_msg_viewlist.AppendTextColumn('PID', width=50)
@@ -262,14 +292,42 @@ class MyWindow(GUIFrame):
         self.qstat_viewlist.AppendTextColumn('cpu', width=30)
         self.qstat_viewlist.AppendTextColumn('Started', width=50)
 
+        # setup cluster load
+        self.load_grid.SetColLabelValue(0, 'Available')
+        self.load_grid.SetColSize(0, 80)
+        self.load_grid.SetColLabelValue(1, 'Used')
+        self.load_grid.SetColSize(1, 80)
+        self.load_grid.SetColLabelValue(2, 'Reserved')
+        self.load_grid.SetColSize(2, 80)
+        self.load_grid.SetColLabelValue(3, 'Failed')
+        self.load_grid.SetColSize(3, 80)
+        self.load_grid.SetColLabelValue(4, 'Total')
+        self.load_grid.SetColSize(4, 80)
+
+        self.load_grid.SetRowLabelValue(0, "euc09")
+        self.load_grid.SetRowLabelValue(1, "ottc01")
+        self.load_grid.SetRowLabelValue(2, "euc09lm")
+
+        # colors
+        self.load_grid.SetCellBackgroundColour(0, 0, "light green")
+        self.load_grid.SetCellBackgroundColour(1, 0, "light green")
+        self.load_grid.SetCellBackgroundColour(2, 0, "light green")
+
+        self.load_grid.SetCellBackgroundColour(0, 1, "red")
+        self.load_grid.SetCellBackgroundColour(1, 1, "red")
+        self.load_grid.SetCellBackgroundColour(2, 1, "red")
+
+        self.load_grid.SetCellBackgroundColour(0, 2, "light grey")
+        self.load_grid.SetCellBackgroundColour(1, 2, "light grey")
+        self.load_grid.SetCellBackgroundColour(2, 2, "light grey")
+
         # Disable Batch-mode radio button
-        self.submit_mode_radiobox.EnableItem(1, False)
         if viz_type == 'DCV':
-            self.submit_mode_radiobox.EnableItem(2, False)
+            self.submit_mode_radiobox.EnableItem(1, False)
             self.submit_mode_radiobox.Select(0)
         else:
-            self.submit_mode_radiobox.EnableItem(2, True)
-            self.submit_mode_radiobox.Select(2)
+            self.submit_mode_radiobox.EnableItem(1, True)
+            self.submit_mode_radiobox.Select(1)
 
         self.select_mode(None)
         self.m_notebook2.ChangeSelection(0)
@@ -282,10 +340,28 @@ class MyWindow(GUIFrame):
             except KeyError:
                 add_message("Settings file was corrupted", "Settings file", "!")
 
+        self.on_reserve_check(None)
+
         # run in parallel to UI regular update of chart and process list
         self.running = True
         threading.Thread(target=self.update_process_list, daemon=True).start()
-        threading.Thread(target=self.update_cluster_load, daemon=True).start()
+
+        # bind custom event to invoke function on_signal
+        self.Bind(SIGNAL_EVT, self.on_signal)
+
+        # start a thread to update cluster load
+        worker = ClusterLoadUpdateThread(self)
+        worker.start()
+
+    def on_signal(self, evt):
+        """Update UI when signal comes from subthread. Should be updated always from main thread"""
+        # run in list to keep order
+        for i, queue_name in enumerate(["euc09", "ottc01", "euc09lm"]):
+            self.load_grid.SetCellValue(i, 0, str(queue_dict[queue_name]["avail_cores"]))
+            self.load_grid.SetCellValue(i, 1, str(queue_dict[queue_name]["used_cores"]))
+            self.load_grid.SetCellValue(i, 2, str(queue_dict[queue_name]["reserved_cores"]))
+            self.load_grid.SetCellValue(i, 3, str(queue_dict[queue_name]["failed_cores"]))
+            self.load_grid.SetCellValue(i, 4, str(queue_dict[queue_name]["total_cores"]))
 
     def read_custom_builds(self):
         """Reads all specified in JSON file custom builds"""
@@ -323,11 +399,13 @@ class MyWindow(GUIFrame):
             "queue": self.queue_dropmenu.GetValue(),
             "parallel_env": self.pe_dropmenu.GetValue(),
             "num_cores": self.m_numcore.Value,
-            "exclusive": self.exclusive_usage_checkbox.Value,
+            # "exclusive": self.exclusive_usage_checkbox.Value,
             "aedt_version": self.m_select_version1.Value,
             "env_var": self.env_var_text.Value,
             "advanced": self.advanced_options_text.Value,
-            "project_path": self.path_textbox.Value
+            "project_path": self.path_textbox.Value,
+            "use_reservation": self.reserved_checkbox.Value,
+            "reservation_id": self.reservation_id_text.Value
         }
 
         with open(self.default_settings_json, "w") as file:
@@ -337,18 +415,25 @@ class MyWindow(GUIFrame):
         with open(self.default_settings_json, "r") as file:
             self.default_settings = json.load(file)
 
-        self.submit_mode_radiobox.Selection = self.default_settings["mode"]
-        self.queue_dropmenu.Value = self.default_settings["queue"]
-        self.pe_dropmenu.Value = self.default_settings["parallel_env"]
-        self.m_numcore.Value = self.default_settings["num_cores"]
-        self.exclusive_usage_checkbox.Value = self.default_settings["exclusive"]
-        self.m_select_version1.Value = self.default_settings["aedt_version"]
-        self.env_var_text.Value = self.default_settings["env_var"]
-        self.advanced_options_text.Value = self.default_settings["advanced"]
-        self.path_textbox.Value = self.default_settings["project_path"]
+        try:
+            self.submit_mode_radiobox.Selection = self.default_settings["mode"]
+            self.queue_dropmenu.Value = self.default_settings["queue"]
+            self.pe_dropmenu.Value = self.default_settings["parallel_env"]
+            self.m_numcore.Value = self.default_settings["num_cores"]
+            # self.exclusive_usage_checkbox.Value = self.default_settings["exclusive"]
+            self.m_select_version1.Value = self.default_settings["aedt_version"]
+            self.env_var_text.Value = self.default_settings["env_var"]
+            self.advanced_options_text.Value = self.default_settings["advanced"]
+            self.path_textbox.Value = self.default_settings["project_path"]
 
-        queue_value = self.queue_dropmenu.GetValue()
-        self.m_node_label.LabelText = node_config_str[queue_value]
+            self.reserved_checkbox.Value = self.default_settings["use_reservation"]
+            self.reservation_id_text.Value = self.default_settings["reservation_id"]
+
+            queue_value = self.queue_dropmenu.GetValue()
+            self.m_node_label.LabelText = node_config_str[queue_value]
+        except wx._core.wxAssertionError:
+            add_message("UI was updated or default settings file was corrupted. Please save default settings again",
+                        "", "i")
 
     def reset_settings(self, _unused):
         if os.path.isfile(self.default_settings_json):
@@ -367,21 +452,22 @@ class MyWindow(GUIFrame):
     def select_mode(self, _unused):
         """Callback invoked on change of the mode Pre/Post or Interactive"""
         sel = self.submit_mode_radiobox.Selection
-        if sel == 0 or sel == 1:
-            self.queue_dropmenu.Enabled = False
-            self.m_numcore.Enabled = False
-            self.exclusive_usage_checkbox.Enabled = False
-            self.m_node_label.Enabled = False
-            self.pe_dropmenu.Enable(False)
+        if sel == 0:
+            enable = False
+            self.reserved_checkbox.Value = enable
             self.advanced_options_text.Value = self.local_env
         else:
-            # Interactive model: set default to 8 cores
-            self.queue_dropmenu.Enabled = True
-            self.m_numcore.Enabled = True
-            self.exclusive_usage_checkbox.Enabled = True
-            self.m_node_label.Enabled = True
-            self.pe_dropmenu.Enable(True)
+            enable = True
             self.advanced_options_text.Value = self.interactive_env
+
+        self.reserved_checkbox.Enabled = enable
+        self.queue_dropmenu.Enabled = enable
+        self.m_numcore.Enabled = enable
+        # self.exclusive_usage_checkbox.Enabled = enable
+        self.m_node_label.Enabled = enable
+        self.pe_dropmenu.Enable(enable)
+
+        self.on_reserve_check(None)
 
     def update_msg_list(self):
         """Update messages on checkbox and init from file"""
@@ -401,47 +487,6 @@ class MyWindow(GUIFrame):
         self.log_data["Message List"].append(data)
         with open(self.logfile, 'w') as fa:
             json.dump(self.log_data, fa)
-
-    def update_cluster_load(self):
-        """Update cluster load every 10s. Counter serves to check thread every 0.5 sec"""
-        time.sleep(1)
-        counter = 20
-        while self.running:
-            if counter % 20 == 0:
-                qstat_output = subprocess.check_output(self.qstat + ' -g c', shell=True).decode(
-                                                                                            "ascii", errors="ignore")
-                # with open("/ott/home1/mbeliaev/out.txt") as file:
-                #     qstat_output = file.read()
-
-                """
-                 Example of output of qstat -g c
-                CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
-                --------------------------------------------------------------------------------
-                all.q                             -NA-      0      0      0      0      0      0
-                dcv                               0.64     32      0      4     36      0      0
-                euc09                             0.47    742      0    218    960      0      0
-                euc09gpu                          0.00      0      0     56     56      0      0
-                euc09lm                           0.37     56      0     84    140     28      0
-                ottc01                            0.43   1040      0    276   1344      0     28
-                vnc                               0.63     35      0     37     72      0      0
-                """
-
-                for line in qstat_output.split("\n"):
-                    data = line.split()
-                    if len(data) <= 1:
-                        continue
-
-                    queue_name = data[0]
-                    if queue_name in queue_dict:
-                        queue_data = queue_dict[queue_name]
-                        queue_data.num_cores = int(data[5])
-                        queue_data.avail_cores = int(data[4])
-
-                self.plotpanel.update_plot()
-                counter = 0
-
-            time.sleep(0.5)
-            counter += 1
 
     def update_process_list(self):
         """Update a list of jobs status for a user every 5s"""
@@ -503,7 +548,7 @@ class MyWindow(GUIFrame):
         pid = self.qstat_viewlist.GetTextValue(row, 0)
         queue_val = self.qstat_viewlist.GetTextValue(row, 4)
 
-        result = add_message("Abort Queue Process ?\n", "Confirm Abort", "?")
+        result = add_message("Abort Queue Process {}?\n".format(pid), "Confirm Abort", "?")
 
         if result == wx.ID_OK:
             subprocess.call('qdel '+pid, shell=True)
@@ -516,7 +561,7 @@ class MyWindow(GUIFrame):
 
     def select_queue(self, _unused):
         queue_value = self.queue_dropmenu.GetValue()
-        init_combobox(queue_dict[queue_value].parallel_env, self.pe_dropmenu, queue_dict[queue_value].default_pe)
+        init_combobox(queue_dict[queue_value]["parallel_env"], self.pe_dropmenu, queue_dict[queue_value]["default_pe"])
         self.select_pe(None)
         tst = node_config_str[queue_value]
         self.m_node_label.LabelText = tst
@@ -528,9 +573,17 @@ class MyWindow(GUIFrame):
         else:
             self.advanced_options_text.Hide()
 
+    def on_reserve_check(self, _unused):
+        """callback called when clicked Reservation"""
+        if self.reserved_checkbox.Value:
+            self.reservation_id_text.Show()
+        else:
+            self.reservation_id_text.Hide()
+
     def click_launch(self, _unused):
         """Depending on the choice of the user invokes AEDT on visual node or simply for pre/post"""
         check_ssh()
+
         # Scheduler data
         scheduler = '/ott/apps/uge/bin/lx-amd64/qsub'
         queue_val = self.queue_dropmenu.Value
@@ -544,40 +597,54 @@ class MyWindow(GUIFrame):
             env += "," + self.env_var_text.Value
 
         # verify that no double commas, spaces, etc
-        env.rstrip()
+
         if env:
-            while ",," in env:
-                env = env.replace(",,", ",")
-
-            if env[-1] == ",":
-                env = env[:-1]
-
-            if env[0] == ",":
-                env = env[1:]
+            env = re.sub(" ", "", env)
+            env = re.sub(",+", ",", env)
+            env = env.rstrip(",").lstrip(",")
 
         self.set_registry(aedt_path)
+        self.usage_stat()
 
         op_mode = self.submit_mode_radiobox.GetSelection()
-        if op_mode == 2:
+        if op_mode == 1:
             command = [scheduler, "-q", queue_val, "-pe", penv, num_cores]
 
-            if self.exclusive_usage_checkbox.Value:
-                command += ["-l", "exclusive"]
+            # if self.exclusive_usage_checkbox.Value:
+            #     command += ["-l", "exclusive"]
 
             # Interactive mode
             command += ["-terse", "-v", env, "-b", "yes"]
+
+            # insert job ID if provided. Should be always as first argument of qsub
+            if self.reserved_checkbox.Value:
+                ar = self.reservation_id_text.Value
+                if ar in [None, ""]:
+                    return add_message("Reservation ID is not provided. Please set ID and click launch again",
+                                       "Reservation ID", "!")
+                command[1:1] = ["-ar", ar]
+
             command += [os.path.join(aedt_path, "ansysedt"), "-machinelist", "num="+num_cores]
 
-            sh = False
-            res = subprocess.check_output(command, shell=sh)
+            res = subprocess.check_output(command, shell=False)
             pid = res.decode().strip()
             msg = "Job submitted to {0} on {1}\nSubmit Command:{2}".format(queue_val, scheduler, " ".join(command))
             self.add_log_entry(pid, msg, scheduler=False)
             self.log_data["PID List"].append(pid)
+
         else:
             threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env,)).start()
 
+    def usage_stat(self):
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        stat_file = os.path.join(self.user_dir, '.aedt', "run.log")
+        with open(stat_file, "a") as file:
+            file.write(self.m_select_version1.Value + "\t" + timestamp + "\n")
+
     def set_registry(self, aedt_path):
+        if not os.path.isdir(self.path_textbox.Value):
+            os.mkdir(self.path_textbox.Value)
+
         registry_file = os.path.join(aedt_path, "UpdateRegistry")
         # disable question about participation in product improvement
         command = ('{} -set -ProductName {} -RegistryKey ' +
@@ -711,7 +778,7 @@ class MyWindow(GUIFrame):
 def check_ssh():
     """verify that all passwordless SSH are in place"""
     ssh_path = os.path.join(os.environ["HOME"], ".ssh")
-    for file in ["authorized_keys", "config", "known_hosts"]:
+    for file in ["authorized_keys", "config"]:
         if not os.path.isfile(os.path.join(ssh_path, file)):
             shutil.rmtree(ssh_path)
             proc = subprocess.Popen(["/nfs/ott/apps/admin/run_me_first.sh"], stdin=subprocess.PIPE, shell=True)
@@ -720,18 +787,18 @@ def check_ssh():
 
 
 def add_message(message, titel="", icon="?"):
-        if icon == "?":
-            icon = wx.OK | wx.CANCEL |wx.ICON_QUESTION
-        elif icon == "!":
-            icon = wx.OK | wx.ICON_ERROR
-        else:
-            icon = wx.OK | wx.ICON_INFORMATION
+    if icon == "?":
+        icon = wx.OK | wx.CANCEL | wx.ICON_QUESTION
+    elif icon == "!":
+        icon = wx.OK | wx.ICON_ERROR
+    else:
+        icon = wx.OK | wx.ICON_INFORMATION
 
-        dlg_qdel = wx.MessageDialog(None, message, titel, icon)
-        result = dlg_qdel.ShowModal()
-        dlg_qdel.Destroy()
+    dlg_qdel = wx.MessageDialog(None, message, titel, icon)
+    result = dlg_qdel.ShowModal()
+    dlg_qdel.Destroy()
 
-        return result
+    return result
 
 
 def init_combobox(entry_list, combobox, default_value=''):
@@ -745,10 +812,9 @@ def init_combobox(entry_list, combobox, default_value=''):
     Outputs
     :return: None
     """
-    values = sorted(entry_list)
     combobox.Clear()
     index = 0
-    for i, v in enumerate(values):
+    for i, v in enumerate(list(entry_list)):
         if v == default_value:
             index = i
         combobox.Append(v)
