@@ -727,7 +727,7 @@ class MyWindow(GUIFrame):
 
         # if all is fine add new build
         self.user_build_viewlist.AppendItem([name, path])
-        install_dir[name] = path + "/ansysedt"
+        install_dir[name] = path
 
         with open(os.path.join(path, "config", "ProductList.txt")) as file:
             self.products[name] = next(file).rstrip()  # get first line
