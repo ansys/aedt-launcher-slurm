@@ -340,6 +340,17 @@ class MyWindow(GUIFrame):
             except KeyError:
                 add_message("Settings file was corrupted", "Settings file", "!")
 
+        # check that DISPLAY was overwritten if VNC node was changed
+        if self.display_node not in self.advanced_options_text.Value:
+            advanced_list = self.advanced_options_text.Value.split(",")
+            for index, variable in enumerate(advanced_list):
+                if "DISPLAY" in variable:
+                    advanced_list[index] = "DISPLAY=" + self.display_node
+                    break
+
+            self.advanced_options_text.Value = ",".join(advanced_list)
+
+
         self.on_reserve_check(None)
 
         # run in parallel to UI regular update of chart and process list
