@@ -89,7 +89,7 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer.Add( self.m_staticText12, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
-		pe_dropmenuChoices = [ u"electronics-8", u"electronics-16", u"electronics-28" ]
+		pe_dropmenuChoices = []
 		self.pe_dropmenu = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, pe_dropmenuChoices, wx.CB_READONLY )
 		self.pe_dropmenu.SetSelection( 0 )
 		self.pe_dropmenu.SetMinSize( wx.Size( 150,-1 ) )
