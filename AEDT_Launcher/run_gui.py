@@ -329,10 +329,13 @@ class MyWindow(GUIFrame):
         self.advanced_options_text.Hide()  # hide on start since hidden attribute is not working in wxBuilder
         self.read_custom_builds()
 
+        default_queue = list(queue_dict.keys())[0]
+        parallel_env = None
         if os.path.isfile(self.default_settings_json):
             try:
                 self.set_default_settings()
                 default_queue = self.default_settings["queue"]
+                parallel_env = self.default_settings["parallel_env"]
             except KeyError:
                 add_message("Settings file was corrupted", "Settings file", "!")
 
@@ -347,9 +350,7 @@ class MyWindow(GUIFrame):
             self.advanced_options_text.Value = ",".join(advanced_list)
 
         init_combobox(queue_dict.keys(), self.queue_dropmenu, default_queue)
-
-        self.queue_dropmenu.Value = default_queue
-        self.select_queue(None)
+        self.select_queue(parallel_env)  # if we read from a file then keep saved PE
 
         self.on_reserve_check(None)
 
@@ -570,9 +571,13 @@ class MyWindow(GUIFrame):
                 pass
             self.add_log_entry(pid, msg, scheduler=False)
 
-    def select_queue(self, _unused):
+    def select_queue(self, parallel_env):
         queue_value = self.queue_dropmenu.GetValue()
-        init_combobox(queue_dict[queue_value]["parallel_env"], self.pe_dropmenu, queue_dict[queue_value]["default_pe"])
+
+        if not parallel_env:
+            parallel_env = queue_dict[queue_value]["default_pe"]
+
+        init_combobox(queue_dict[queue_value]["parallel_env"], self.pe_dropmenu, parallel_env)
         self.select_pe(None)
         tst = node_config_str[queue_value]
         self.m_node_label.LabelText = tst
