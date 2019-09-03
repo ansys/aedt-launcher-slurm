@@ -24,14 +24,15 @@ __authors__ = "Leon Voss, Maksim Beliaev"
 __version__ = "v2.0"
 
 # Simple dictionary for the versions (* at the beginning) for the default version
-default_version = u"2019 R1"
+default_version = u"2019 R3"
 install_dir = OrderedDict([
     (u"R18.2",   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64'),
     (u"R19.0",   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64'),
     (u"R19.1",   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64'),
     (u"R19.2",   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64'),
     (u"2019 R1", '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64'),
-    (u"2019 R2",  '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64')
+    (u"2019 R2", '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64'),
+    (u"2019 R3", '/ott/apps/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64')
 ])
 
 # Define default number of cores for the selected PE (interactive mode)
@@ -43,12 +44,12 @@ pe_cores = {
     'electronics-20': 20,
     'electronics-28': 28
 }
+
 node_config_str = {
     'euc09':    '(20 cores, 128GB  / node)',
     'ottc01':   '(28 cores, 128GB  / node)',
     'euc09lm':  '(28 cores, 512GB  / node)'
 }
-
 
 default_queue = u'euc09'
 queue_dict = {
@@ -78,7 +79,6 @@ queue_dict = {
               }
 }
 
-
 class ClearMsgPopupMenu(wx.Menu):
     def __init__(self, parent):
         super(ClearMsgPopupMenu, self).__init__()
@@ -104,13 +104,11 @@ ID_COUNT = wx.NewId()
 my_SIGNAL_EVT = wx.NewEventType()
 SIGNAL_EVT = wx.PyEventBinder(my_SIGNAL_EVT, 1)
 
-
 class SignalEvent(wx.PyCommandEvent):
     """Event to signal that we are ready to update the plot"""
     def __init__(self, etype, eid):
         """Creates the event object"""
         wx.PyCommandEvent.__init__(self, etype, eid)
-
 
 class ClusterLoadUpdateThread(threading.Thread):
     def __init__(self, parent):
@@ -251,7 +249,6 @@ class MyWindow(GUIFrame):
 
         # create a list of default environmental variables
         init_combobox(install_dir.keys(), self.m_select_version1, default_version)
-        init_combobox(queue_dict.keys(), self.queue_dropmenu, default_queue)
 
         self.interactive_env = ",".join(["DISPLAY=" + self.display_node, "LIBGL_ALWAYS_INDIRECT=True",
                                          "LIBGL_ALWAYS_SOFTWARE=True", "GALLIUM_DRIVER=swr", "ANS_NODEPCHECK=1"])
@@ -260,8 +257,6 @@ class MyWindow(GUIFrame):
 
         self.local_env = "ANS_NODEPCHECK=1"
 
-        self.queue_dropmenu.Value = default_queue
-        self.select_queue(None)
 
         # Setup Process Log
         self.scheduler_msg_viewlist.AppendTextColumn('Timestamp', width=140)
@@ -337,6 +332,7 @@ class MyWindow(GUIFrame):
         if os.path.isfile(self.default_settings_json):
             try:
                 self.set_default_settings()
+                default_queue = self.default_settings["queue"]
             except KeyError:
                 add_message("Settings file was corrupted", "Settings file", "!")
 
@@ -350,6 +346,10 @@ class MyWindow(GUIFrame):
 
             self.advanced_options_text.Value = ",".join(advanced_list)
 
+        init_combobox(queue_dict.keys(), self.queue_dropmenu, default_queue)
+
+        self.queue_dropmenu.Value = default_queue
+        self.select_queue(None)
 
         self.on_reserve_check(None)
 
