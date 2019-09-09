@@ -285,6 +285,9 @@ class GUIFrame ( wx.Frame ):
 		self.load_grid.SetDefaultCellAlignment( wx.ALIGN_CENTER, wx.ALIGN_TOP )
 		bSizer1411.Add( self.load_grid, 0, wx.ALL, 5 )
 
+		self.overwatch_button = wx.Button( self.m_panel2, wx.ID_ANY, u"See full statistics in OverWatch", wx.DefaultPosition, wx.DefaultSize, 0 )
+		bSizer1411.Add( self.overwatch_button, 0, wx.ALL, 5 )
+
 
 		bSizer8.Add( bSizer1411, 1, wx.EXPAND, 5 )
 
@@ -442,6 +445,7 @@ class GUIFrame ( wx.Frame ):
 		self.set_path_button.Bind( wx.EVT_BUTTON, self.set_project_path )
 		self.m_button1.Bind( wx.EVT_BUTTON, self.click_launch )
 		self.advanced_checkbox.Bind( wx.EVT_CHECKBOX, self.on_advanced_check )
+		self.overwatch_button.Bind( wx.EVT_BUTTON, self.open_overwatch )
 		self.qstat_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_ACTIVATED, self.leftclick_processtable, id = wx.ID_ANY )
 		self.m_checkBox_allmsg.Bind( wx.EVT_CHECKBOX, self.m_update_msg_list )
 		self.scheduler_msg_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_CONTEXT_MENU, self.rmb_on_scheduler_msg_list, id = wx.ID_ANY )
@@ -479,6 +483,9 @@ class GUIFrame ( wx.Frame ):
 		event.Skip()
 
 	def on_advanced_check( self, event ):
+		event.Skip()
+
+	def open_overwatch( self, event ):
 		event.Skip()
 
 	def leftclick_processtable( self, event ):
