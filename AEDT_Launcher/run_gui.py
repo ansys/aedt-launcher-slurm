@@ -129,9 +129,8 @@ class ClusterLoadUpdateThread(threading.Thread):
         while self._parent.running:
             if counter % 120 == 0:
                 xml_file = os.path.join(self._parent.user_dir, '.aedt', "data.xml")
-                out_file = os.path.join(self._parent.user_dir, '.aedt', "dump.txt")
-                command = "java -jar /ott/apps/software/AEDT_Launcher/overwatch.jar -xmlpath {} >& {}".format(xml_file,
-                                                                                                              out_file)
+                command = ("java -jar /ott/apps/software/AEDT_Launcher/overwatch.jar " +
+                           "-exportClusterSummaryXmlPath {} >& {}").format(xml_file, self._parent.out_file)
                 subprocess.call(command, shell=True)
                 with open(xml_file, "r") as file:
                     data = file.read()
@@ -201,6 +200,7 @@ class MyWindow(GUIFrame):
         # get paths
         self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
         self.default_settings_json = os.path.join(self.user_dir, '.aedt', 'default.json')
+        self.out_file = os.path.join(self.user_dir, '.aedt', "dump.txt")
         
         self.builds_data = {}
         self.default_settings = {}
@@ -596,6 +596,9 @@ class MyWindow(GUIFrame):
         else:
             self.reservation_id_text.Hide()
 
+    def open_overwatch(self, _unused):
+        threading.Thread(target=self.submit_overwatch_thread, daemon=True).start()
+
     def click_launch(self, _unused):
         """Depending on the choice of the user invokes AEDT on visual node or simply for pre/post"""
         check_ssh()
@@ -769,6 +772,10 @@ class MyWindow(GUIFrame):
 
         signal.pthread_kill(threading.get_ident(), signal.SIGINT)
         os.kill(os.getpid(), signal.SIGINT)
+
+    def submit_overwatch_thread(self):
+        command = "java -jar /ott/apps/software/AEDT_Launcher/overwatch.jar >& {}".format(self.out_file)
+        subprocess.call(command, shell=True)
 
     @staticmethod
     def _submit_batch_thread(aedt_path, env):
