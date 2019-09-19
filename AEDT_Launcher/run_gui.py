@@ -803,7 +803,9 @@ def check_ssh():
     ssh_path = os.path.join(os.environ["HOME"], ".ssh")
     for file in ["authorized_keys", "config"]:
         if not os.path.isfile(os.path.join(ssh_path, file)):
-            shutil.rmtree(ssh_path)
+            if os.path.isdir(ssh_path):
+                shutil.rmtree(ssh_path)
+
             proc = subprocess.Popen(["/nfs/ott/apps/admin/run_me_first.sh"], stdin=subprocess.PIPE, shell=True)
             proc.communicate(input=b"\n\n\n")
             break
