@@ -186,7 +186,7 @@ class ClusterLoadUpdateThread(threading.Thread):
 
 
 class MyWindow(GUIFrame):
-    def __init__(self, parent):
+    def __init__(self, parent, singleton_file):
         # Initialize the main form
         GUIFrame.__init__(self, parent)
 
@@ -201,9 +201,14 @@ class MyWindow(GUIFrame):
         self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
         self.default_settings_json = os.path.join(self.user_dir, '.aedt', 'default.json')
         self.out_file = os.path.join(self.user_dir, '.aedt', "dump.txt")
+        self.singleton_log = os.path.join(self.user_dir, '.aedt', "singleton.txt")
         
         self.builds_data = {}
         self.default_settings = {}
+
+        with open(self.singleton_log, "a") as file:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            file.write(timestamp + "\t" + singleton_file + "\n")
 
         # generate list of products for registry
         self.products = {}
@@ -455,7 +460,7 @@ class MyWindow(GUIFrame):
     def timer_stop(self):
         self.running = False
 
-    def select_pe(self, _unused):
+    def select_pe(self, _unused=None):
         """ Callback for the selection of parallel environment. Primarily used to set an appropriate number of cores"""
         pe_val = self.pe_dropmenu.Value
         core_val = pe_cores[pe_val]
@@ -575,10 +580,16 @@ class MyWindow(GUIFrame):
         queue_value = self.queue_dropmenu.GetValue()
 
         if not parallel_env:
+            # choose  default PE and set default number of cores
             parallel_env = queue_dict[queue_value]["default_pe"]
 
+        set_cores = True if not isinstance(parallel_env, str) else None
+
         init_combobox(queue_dict[queue_value]["parallel_env"], self.pe_dropmenu, parallel_env)
-        self.select_pe(None)
+
+        if set_cores:
+            self.select_pe()
+
         tst = node_config_str[queue_value]
         self.m_node_label.LabelText = tst
 
@@ -855,11 +866,16 @@ def main():
     try:
         me = singleton.SingleInstance()  # should be assigned to "me", otherwise does not work
     except singleton.SingleInstanceException:
-        add_message("Cannot open multiple instances. Close all launchers before you start new one",
-                    "Instance error", "!")
-        return
+        result = add_message("Cannot open multiple instances. Do you really want to open new instance?",
+                             "Instance error", "?")
 
-    ex = MyWindow(None)
+        if result != wx.ID_OK:
+            return
+
+    # drop file to the log in the class to remove it manually in case if smth will go wrong
+    # otherwise remove it for all users (if you do not have all permissions will remove only yours folder:
+    # find /ekm/tmp/. -name "*AEDT_Launcher*" -delete
+    ex = MyWindow(None, me.fp.name)
     ex.Show()
     app.MainLoop()
 
