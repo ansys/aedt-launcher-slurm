@@ -32,7 +32,8 @@ install_dir = OrderedDict([
     (u"R19.2",   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64'),
     (u"2019 R1", '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64'),
     (u"2019 R2", '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64'),
-    (u"2019 R3", '/ott/apps/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64')
+    (u"2019 R3", '/ott/apps/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64'),
+    (u"2020 R1", '/ott/apps/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64')
 ])
 
 # Define default number of cores for the selected PE (interactive mode)
@@ -206,10 +207,6 @@ class MyWindow(GUIFrame):
         self.builds_data = {}
         self.default_settings = {}
 
-        with open(self.singleton_log, "a") as file:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            file.write(timestamp + "\t" + singleton_file + "\n")
-
         # generate list of products for registry
         self.products = {}
         for key in install_dir.keys():
@@ -240,12 +237,18 @@ class MyWindow(GUIFrame):
             msg = "Warning: Unknown Display Type!!"
             viz_type = ''
 
+        # create a path for .aedt folder if first run
         if not os.path.exists(os.path.dirname(self.user_build_json)):
             try:
                 os.makedirs(os.path.dirname(self.user_build_json))
             except OSError as exc:  # Guard against race condition
                 if exc.errno != errno.EEXIST:
                     raise
+
+        # create a file and append with last location of singleton in case of debugging
+        with open(self.singleton_log, "a+") as file:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            file.write(timestamp + "\t" + singleton_file + "\n")
 
         # Set the status bars on the bottom of the window
         self.m_statusBar1.SetStatusText('User: ' + self.username + ' on ' + viz_type + ' node ' + self.display_node, 0)
@@ -869,8 +872,14 @@ def main():
         result = add_message("Cannot open multiple instances. Do you really want to open new instance?",
                              "Instance error", "?")
 
-        if result != wx.ID_OK:
-            return
+        if result == wx.ID_OK:
+            command = 'find /ekm/tmp/. -name "*AEDT_Launcher*" -delete'
+            subprocess.call([command], shell=True)
+            ex = MyWindow(None, "Copy")
+            ex.Show()
+            app.MainLoop()
+
+        return
 
     # drop file to the log in the class to remove it manually in case if smth will go wrong
     # otherwise remove it for all users (if you do not have all permissions will remove only yours folder:
