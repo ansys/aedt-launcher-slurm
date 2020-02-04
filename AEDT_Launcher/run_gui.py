@@ -1,6 +1,5 @@
 from src_gui import GUIFrame
 from datetime import datetime
-from tendo import singleton
 from collections import OrderedDict
 
 import xml.etree.ElementTree as ET
@@ -86,6 +85,7 @@ log_dict = {"pid": 0,
             "msg": "None",
             "scheduler": False}
 
+
 class ClearMsgPopupMenu(wx.Menu):
     def __init__(self, parent):
         super(ClearMsgPopupMenu, self).__init__()
@@ -96,7 +96,7 @@ class ClearMsgPopupMenu(wx.Menu):
         self.Append(mmi)
         self.Bind(wx.EVT_MENU, self.on_clear, mmi)
 
-    def on_clear(self, _unused):
+    def on_clear(self, _unused_event):
         self.parent.scheduler_msg_viewlist.DeleteAllItems()
         self.parent.log_data = {"Message List": [],
                                 "PID List": [],
@@ -108,19 +108,20 @@ class ClearMsgPopupMenu(wx.Menu):
 
 # create a new event to bind it and call it from subthread. UI should be changed ONLY in MAIN THREAD
 # signal - cluster load
-ID_COUNT = wx.NewId()
+ID_1 = wx.NewId()
 my_SIGNAL_EVT = wx.NewEventType()
 SIGNAL_EVT = wx.PyEventBinder(my_SIGNAL_EVT, 1)
 
 # signal - qstat
-ID_COUNT = wx.NewId()
+ID_2 = wx.NewId()
 NEW_SIGNAL_EVT_QSTAT = wx.NewEventType()
 SIGNAL_EVT_QSTAT = wx.PyEventBinder(NEW_SIGNAL_EVT_QSTAT, 1)
 
 # signal - log message
-ID_COUNT = wx.NewId()
+ID_3 = wx.NewId()
 NEW_SIGNAL_EVT_LOG = wx.NewEventType()
 SIGNAL_EVT_LOG = wx.PyEventBinder(NEW_SIGNAL_EVT_LOG, 1)
+
 
 class SignalEvent(wx.PyCommandEvent):
     """Event to signal that we are ready to update the plot"""
@@ -205,10 +206,11 @@ class ClusterLoadUpdateThread(threading.Thread):
             """Update a list of jobs status for a user every 5s"""
 
             if counter % 10 == 0:
+                qstat_list.clear()
                 qstat_output = subprocess.check_output(self._parent.qstat, shell=True).decode("ascii", errors="ignore")
 
-                exclude = ['VNC Deskto', 'DCV Deskto']
-                for i, line in enumerate(qstat_output.split("\n")[1:]):
+                exclude = ['VNC Deskto', 'DCV Deskto', ""]
+                for i, line in enumerate(qstat_output.split("\n")[2:]):
                     pid = line[0:10].strip()
                     # prior = line[11:18].strip()
                     name = line[19:30].strip()
@@ -230,9 +232,12 @@ class ClusterLoadUpdateThread(threading.Thread):
                             "started": started
                         })
 
+                evt = SignalEvent(NEW_SIGNAL_EVT_QSTAT, -1)
+                wx.PostEvent(self._parent, evt)
+
                 # get message texts
-                for pid in self.log_data["PID List"]:
-                    o_file = os.path.join(self.user_dir, 'ansysedt.o' + pid)
+                for pid in self._parent.log_data["PID List"]:
+                    o_file = os.path.join(self._parent.user_dir, 'ansysedt.o' + pid)
                     if os.path.exists(o_file):
                         output_text = ''
                         with open(o_file, 'r') as fi:
@@ -246,7 +251,7 @@ class ClusterLoadUpdateThread(threading.Thread):
                                 wx.PostEvent(self._parent, evt)
                         os.remove(o_file)
 
-                    e_file = os.path.join(self.user_dir, 'ansysedt.e' + pid)
+                    e_file = os.path.join(self._parent.user_dir, 'ansysedt.e' + pid)
                     if os.path.exists(e_file):
                         error_text = ''
                         with open(e_file, 'r') as fi:
@@ -261,15 +266,12 @@ class ClusterLoadUpdateThread(threading.Thread):
 
                         os.remove(e_file)
 
-                evt = SignalEvent(NEW_SIGNAL_EVT_QSTAT, -1)
-                wx.PostEvent(self._parent, evt)
-
             time.sleep(0.5)
             counter += 1
 
 
 class MyWindow(GUIFrame):
-    def __init__(self, parent, singleton_file):
+    def __init__(self, parent):
         # Initialize the main form
         GUIFrame.__init__(self, parent)
 
@@ -327,11 +329,6 @@ class MyWindow(GUIFrame):
                 if exc.errno != errno.EEXIST:
                     raise
 
-        # create a file and append with last location of singleton in case of debugging
-        with open(self.singleton_log, "a+") as file:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            file.write(timestamp + "\t" + singleton_file + "\n")
-
         # Set the status bars on the bottom of the window
         self.m_statusBar1.SetStatusText('User: ' + self.username + ' on ' + viz_type + ' node ' + self.display_node, 0)
         self.m_statusBar1.SetStatusText(msg, 1)
@@ -346,7 +343,6 @@ class MyWindow(GUIFrame):
         self.advanced_options_text.Value = self.interactive_env
 
         self.local_env = "ANS_NODEPCHECK=1"
-
 
         # Setup Process Log
         self.scheduler_msg_viewlist.AppendTextColumn('Timestamp', width=140)
@@ -457,7 +453,7 @@ class MyWindow(GUIFrame):
         worker = ClusterLoadUpdateThread(self)
         worker.start()
 
-    def on_signal(self, evt):
+    def on_signal(self, _unused_event):
         """Update UI when signal comes from subthread. Should be updated always from main thread"""
         # run in list to keep order
         for i, queue_name in enumerate(["euc09", "ottc01", "euc09lm"]):
@@ -497,7 +493,7 @@ class MyWindow(GUIFrame):
         with open(self.user_build_json, "w") as file:
             json.dump(self.builds_data, file)
 
-    def save_default_settings(self, _unused):
+    def save_default_settings(self, _unused_event):
         self.default_settings = {
             "mode": self.submit_mode_radiobox.Selection,
             "queue": self.queue_dropmenu.GetValue(),
@@ -539,7 +535,7 @@ class MyWindow(GUIFrame):
             add_message("UI was updated or default settings file was corrupted. Please save default settings again",
                         "", "i")
 
-    def reset_settings(self, _unused):
+    def reset_settings(self, _unused_event):
         if os.path.isfile(self.default_settings_json):
             os.remove(self.default_settings_json)
             add_message("To complete resetting please close and start again the application", "", "i")
@@ -553,7 +549,7 @@ class MyWindow(GUIFrame):
         core_val = pe_cores[pe_val]
         self.m_numcore.Value = str(core_val)
 
-    def select_mode(self, _unused):
+    def select_mode(self, _unused_event):
         """Callback invoked on change of the mode Pre/Post or Interactive"""
         sel = self.submit_mode_radiobox.Selection
         if sel == 0:
@@ -573,7 +569,7 @@ class MyWindow(GUIFrame):
 
         self.on_reserve_check(None)
 
-    def update_job_status(self):
+    def update_job_status(self, _unused_event):
         self.qstat_viewlist.DeleteAllItems()
         for q_dict in qstat_list:
             self.qstat_viewlist.AppendItem([
@@ -595,7 +591,7 @@ class MyWindow(GUIFrame):
                 tab_data = msg[0:3]
                 self.scheduler_msg_viewlist.PrependItem(tab_data)
 
-    def add_log_entry(self):
+    def add_log_entry(self, _unused_event=None):
         scheduler = log_dict["scheduler"]
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         data = [timestamp, log_dict["pid"], log_dict["msg"], scheduler]
@@ -607,11 +603,11 @@ class MyWindow(GUIFrame):
         with open(self.logfile, 'w') as fa:
             json.dump(self.log_data, fa)
 
-    def rmb_on_scheduler_msg_list(self, _unused):
+    def rmb_on_scheduler_msg_list(self, _unused_event):
         position = wx.ContextMenuEvent(type=wx.wxEVT_NULL)
         self.PopupMenu(ClearMsgPopupMenu(self), position.GetPosition())
 
-    def leftclick_processtable(self, _unused):
+    def leftclick_processtable(self, _unused_event):
         """On double click on process row will propose to abort running job"""
         row = self.qstat_viewlist.GetSelectedRow()
         pid = self.qstat_viewlist.GetTextValue(row, 0)
@@ -649,24 +645,24 @@ class MyWindow(GUIFrame):
         tst = node_config_str[queue_value]
         self.m_node_label.LabelText = tst
 
-    def on_advanced_check(self, _unused):
+    def on_advanced_check(self, _unused_event):
         """callback called when clicked Advanced options"""
         if self.advanced_checkbox.Value:
             self.advanced_options_text.Show()
         else:
             self.advanced_options_text.Hide()
 
-    def on_reserve_check(self, _unused):
+    def on_reserve_check(self, _unused_event):
         """callback called when clicked Reservation"""
         if self.reserved_checkbox.Value:
             self.reservation_id_text.Show()
         else:
             self.reservation_id_text.Hide()
 
-    def open_overwatch(self, _unused):
+    def open_overwatch(self, _unused_event):
         threading.Thread(target=self.submit_overwatch_thread, daemon=True).start()
 
-    def click_launch(self, _unused):
+    def click_launch(self, _unused_event):
         """Depending on the choice of the user invokes AEDT on visual node or simply for pre/post"""
         check_ssh()
 
@@ -773,19 +769,17 @@ class MyWindow(GUIFrame):
                                                             registry_file, self.products[self.m_select_version1.Value])
         subprocess.call([command], shell=True)
 
-
-
-    def m_update_msg_list(self, _unused):
+    def m_update_msg_list(self, _unused_event):
         self.update_msg_list()
 
-    def delete_row(self, _unused):
+    def delete_row(self, _unused_event):
         """By clicking on Delete Row button delete row and rewrite json file with builds"""
         row = self.user_build_viewlist.GetSelectedRow()
         if row != -1:
             self.user_build_viewlist.DeleteItem(row)
             self.write_custom_build()
 
-    def add_new_build(self, _unused):
+    def add_new_build(self, _unused_event):
         """By click on Add New Build opens file dialogue to select path and input box to set name.
         At the end we update JSON file with custom builds"""
         get_dir_dialogue = wx.DirDialog(None, "Choose a Linux64 directory:",
@@ -799,7 +793,7 @@ class MyWindow(GUIFrame):
 
         if "Linux64" not in path[-7:]:
             add_message("Your path should include and be ended by Linux64 (eg /ott/apps/ANSYSEM/Linux64)",
-                             "Wrong path", "!")
+                        "Wrong path", "!")
             return
 
         get_name_dialogue = wx.TextEntryDialog(None, "Set name of a build:", value="AEDT_2019R3")
@@ -823,7 +817,7 @@ class MyWindow(GUIFrame):
 
         self.write_custom_build()
 
-    def set_project_path(self, _unused):
+    def set_project_path(self, _unused_event):
         get_dir_dialogue = wx.DirDialog(None, "Choose directory:", style=wx.DD_DEFAULT_STYLE)
         if get_dir_dialogue.ShowModal() == wx.ID_OK:
             path = get_dir_dialogue.GetPath()
@@ -834,7 +828,7 @@ class MyWindow(GUIFrame):
 
         self.path_textbox.Value = path
 
-    def _shutdown_app(self, _unused):
+    def _shutdown_app(self, _unused_event):
         """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
         self.timer_stop()
         while len(threading.enumerate()) > 1:  # possible solution to wait until all threads are dead
@@ -922,25 +916,25 @@ def main():
     time.sleep(0.7)
 
     app = wx.App()
-    try:
-        me = singleton.SingleInstance()  # should be assigned to "me", otherwise does not work
-    except singleton.SingleInstanceException:
-        result = add_message("Cannot open multiple instances. Do you really want to open new instance?",
-                             "Instance error", "?")
-
-        if result == wx.ID_OK:
-            command = 'find /ekm/tmp/. -name "*AEDT_Launcher*" -delete'
-            subprocess.call([command], shell=True)
-            ex = MyWindow(None, "Copy")
-            ex.Show()
-            app.MainLoop()
-
-        return
+    # try:
+    #     me = singleton.SingleInstance()  # should be assigned to "me", otherwise does not work
+    # except singleton.SingleInstanceException:
+    #     result = add_message("Cannot open multiple instances. Do you really want to open new instance?",
+    #                          "Instance error", "?")
+    #
+    #     if result == wx.ID_OK:
+    #         command = 'find /ekm/tmp/. -name "*AEDT_Launcher*" -delete'
+    #         subprocess.call([command], shell=True)
+    #         ex = MyWindow(None, "Copy")
+    #         ex.Show()
+    #         app.MainLoop()
+    #
+    #     return
 
     # drop file to the log in the class to remove it manually in case if smth will go wrong
     # otherwise remove it for all users (if you do not have all permissions will remove only yours folder:
     # find /ekm/tmp/. -name "*AEDT_Launcher*" -delete
-    ex = MyWindow(None, me.fp.name)
+    ex = MyWindow(None)
     ex.Show()
     app.MainLoop()
 
