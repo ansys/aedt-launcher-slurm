@@ -82,6 +82,9 @@ queue_dict = {
 
 # list to keep information about running jobs
 qstat_list = []
+log_dict = {"pid": 0,
+            "msg": "None",
+            "scheduler": False}
 
 class ClearMsgPopupMenu(wx.Menu):
     def __init__(self, parent):
@@ -104,14 +107,20 @@ class ClearMsgPopupMenu(wx.Menu):
 
 
 # create a new event to bind it and call it from subthread. UI should be changed ONLY in MAIN THREAD
+# signal - cluster load
 ID_COUNT = wx.NewId()
 my_SIGNAL_EVT = wx.NewEventType()
 SIGNAL_EVT = wx.PyEventBinder(my_SIGNAL_EVT, 1)
 
+# signal - qstat
 ID_COUNT = wx.NewId()
 NEW_SIGNAL_EVT_QSTAT = wx.NewEventType()
 SIGNAL_EVT_QSTAT = wx.PyEventBinder(NEW_SIGNAL_EVT_QSTAT, 1)
 
+# signal - log message
+ID_COUNT = wx.NewId()
+NEW_SIGNAL_EVT_LOG = wx.NewEventType()
+SIGNAL_EVT_LOG = wx.PyEventBinder(NEW_SIGNAL_EVT_LOG, 1)
 
 class SignalEvent(wx.PyCommandEvent):
     """Event to signal that we are ready to update the plot"""
@@ -196,8 +205,7 @@ class ClusterLoadUpdateThread(threading.Thread):
             """Update a list of jobs status for a user every 5s"""
 
             if counter % 10 == 0:
-                qstat_output = subprocess.check_output(self.qstat, shell=True).decode("ascii", errors="ignore")
-                #self.qstat_viewlist.DeleteAllItems()
+                qstat_output = subprocess.check_output(self._parent.qstat, shell=True).decode("ascii", errors="ignore")
 
                 exclude = ['VNC Deskto', 'DCV Deskto']
                 for i, line in enumerate(qstat_output.split("\n")[1:]):
@@ -221,7 +229,6 @@ class ClusterLoadUpdateThread(threading.Thread):
                             "proc": proc,
                             "started": started
                         })
-                        #self.qstat_viewlist.AppendItem([pid, state, name, user, queue_data, proc, started])
 
                 # get message texts
                 for pid in self.log_data["PID List"]:
@@ -232,7 +239,11 @@ class ClusterLoadUpdateThread(threading.Thread):
                             for msgline in fi:
                                 output_text += msgline
                             if output_text != '':
-                                self.add_log_entry(pid, 'Submit Message: ' + output_text, scheduler=True)
+                                log_dict["pid"] = pid
+                                log_dict["msg"] = 'Submit Message: ' + output_text
+                                log_dict["scheduler"] = True
+                                evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
+                                wx.PostEvent(self._parent, evt)
                         os.remove(o_file)
 
                     e_file = os.path.join(self.user_dir, 'ansysedt.e' + pid)
@@ -242,7 +253,12 @@ class ClusterLoadUpdateThread(threading.Thread):
                             for msgline in fi:
                                 error_text += msgline
                             if error_text != '':
-                                self.add_log_entry(pid, 'Submit Error: ' + error_text, scheduler=True)
+                                log_dict["pid"] = pid
+                                log_dict["msg"] = 'Submit Error: ' + error_text
+                                log_dict["scheduler"] = True
+                                evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
+                                wx.PostEvent(self._parent, evt)
+
                         os.remove(e_file)
 
                 evt = SignalEvent(NEW_SIGNAL_EVT_QSTAT, -1)
@@ -435,6 +451,7 @@ class MyWindow(GUIFrame):
         # bind custom event to invoke function on_signal
         self.Bind(SIGNAL_EVT, self.on_signal)
         self.Bind(SIGNAL_EVT_QSTAT, self.update_job_status)
+        self.Bind(SIGNAL_EVT_LOG, self.add_log_entry)
 
         # start a thread to update cluster load
         worker = ClusterLoadUpdateThread(self)
@@ -557,7 +574,17 @@ class MyWindow(GUIFrame):
         self.on_reserve_check(None)
 
     def update_job_status(self):
-        pass
+        self.qstat_viewlist.DeleteAllItems()
+        for q_dict in qstat_list:
+            self.qstat_viewlist.AppendItem([
+                q_dict["pid"],
+                q_dict["state"],
+                q_dict["name"],
+                q_dict["user"],
+                q_dict["queue_data"],
+                q_dict["proc"],
+                q_dict["started"]
+            ])
 
     def update_msg_list(self):
         """Update messages on checkbox and init from file"""
@@ -568,9 +595,11 @@ class MyWindow(GUIFrame):
                 tab_data = msg[0:3]
                 self.scheduler_msg_viewlist.PrependItem(tab_data)
 
-    def add_log_entry(self, pid, msg, scheduler=False):
+    def add_log_entry(self):
+        scheduler = log_dict["scheduler"]
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        data = [timestamp, pid, msg, scheduler]
+        data = [timestamp, log_dict["pid"], log_dict["msg"], scheduler]
+
         if scheduler or self.m_checkBox_allmsg.Value:
             tab_data = data[0:3]
             self.scheduler_msg_viewlist.PrependItem(tab_data)
@@ -597,7 +626,11 @@ class MyWindow(GUIFrame):
                 self.log_data["PID List"].remove(pid)
             except ValueError:
                 pass
-            self.add_log_entry(pid, msg, scheduler=False)
+
+            log_dict["pid"] = pid
+            log_dict["msg"] = msg
+            log_dict["scheduler"] = False
+            self.add_log_entry()
 
     def select_queue(self, parallel_env):
         queue_value = self.queue_dropmenu.GetValue()
@@ -682,7 +715,10 @@ class MyWindow(GUIFrame):
             res = subprocess.check_output(command, shell=False)
             pid = res.decode().strip()
             msg = "Job submitted to {0} on {1}\nSubmit Command:{2}".format(queue_val, scheduler, " ".join(command))
-            self.add_log_entry(pid, msg, scheduler=False)
+            log_dict["pid"] = pid
+            log_dict["msg"] = msg
+            log_dict["scheduler"] = False
+            self.add_log_entry()
             self.log_data["PID List"].append(pid)
 
         else:
