@@ -20,8 +20,8 @@ import wx._core
 import shutil
 import re
 
-__authors__ = "Leon Voss, Maksim Beliaev"
-__version__ = "v2.0"
+__authors__ = "Maksim Beliaev, Leon Voss"
+__version__ = "v2.1"
 
 # Simple dictionary for the versions (* at the beginning) for the default version
 default_version = u"2019 R3"
@@ -80,6 +80,9 @@ queue_dict = {
               }
 }
 
+# list to keep information about running jobs
+qstat_list = []
+
 class ClearMsgPopupMenu(wx.Menu):
     def __init__(self, parent):
         super(ClearMsgPopupMenu, self).__init__()
@@ -105,11 +108,17 @@ ID_COUNT = wx.NewId()
 my_SIGNAL_EVT = wx.NewEventType()
 SIGNAL_EVT = wx.PyEventBinder(my_SIGNAL_EVT, 1)
 
+ID_COUNT = wx.NewId()
+NEW_SIGNAL_EVT_QSTAT = wx.NewEventType()
+SIGNAL_EVT_QSTAT = wx.PyEventBinder(NEW_SIGNAL_EVT_QSTAT, 1)
+
+
 class SignalEvent(wx.PyCommandEvent):
     """Event to signal that we are ready to update the plot"""
     def __init__(self, etype, eid):
         """Creates the event object"""
         wx.PyCommandEvent.__init__(self, etype, eid)
+
 
 class ClusterLoadUpdateThread(threading.Thread):
     def __init__(self, parent):
@@ -125,6 +134,7 @@ class ClusterLoadUpdateThread(threading.Thread):
 
         Gets cluster load every 60 seconds. 0.5s step is used to be able to stop subthread earlier
         by triggering parent.running
+        Update a list of jobs status for a user every 5s
         """
         counter = 120
         while self._parent.running:
@@ -182,6 +192,62 @@ class ClusterLoadUpdateThread(threading.Thread):
                 wx.PostEvent(self._parent, evt)
 
                 counter = 0
+
+            """Update a list of jobs status for a user every 5s"""
+
+            if counter % 10 == 0:
+                qstat_output = subprocess.check_output(self.qstat, shell=True).decode("ascii", errors="ignore")
+                #self.qstat_viewlist.DeleteAllItems()
+
+                exclude = ['VNC Deskto', 'DCV Deskto']
+                for i, line in enumerate(qstat_output.split("\n")[1:]):
+                    pid = line[0:10].strip()
+                    # prior = line[11:18].strip()
+                    name = line[19:30].strip()
+                    user = line[30:42].strip()
+                    state = line[43:48].strip()
+                    started = line[49:68].strip()
+                    queue_data = line[69:99].strip()
+                    # jclass = line[100:128].strip()
+                    proc = line[129:148].strip()
+
+                    if name not in exclude:
+                        qstat_list.append({
+                            "pid": pid,
+                            "state": state,
+                            "name": name,
+                            "user": user,
+                            "queue_data": queue_data,
+                            "proc": proc,
+                            "started": started
+                        })
+                        #self.qstat_viewlist.AppendItem([pid, state, name, user, queue_data, proc, started])
+
+                # get message texts
+                for pid in self.log_data["PID List"]:
+                    o_file = os.path.join(self.user_dir, 'ansysedt.o' + pid)
+                    if os.path.exists(o_file):
+                        output_text = ''
+                        with open(o_file, 'r') as fi:
+                            for msgline in fi:
+                                output_text += msgline
+                            if output_text != '':
+                                self.add_log_entry(pid, 'Submit Message: ' + output_text, scheduler=True)
+                        os.remove(o_file)
+
+                    e_file = os.path.join(self.user_dir, 'ansysedt.e' + pid)
+                    if os.path.exists(e_file):
+                        error_text = ''
+                        with open(e_file, 'r') as fi:
+                            for msgline in fi:
+                                error_text += msgline
+                            if error_text != '':
+                                self.add_log_entry(pid, 'Submit Error: ' + error_text, scheduler=True)
+                        os.remove(e_file)
+
+                evt = SignalEvent(NEW_SIGNAL_EVT_QSTAT, -1)
+                wx.PostEvent(self._parent, evt)
+
             time.sleep(0.5)
             counter += 1
 
@@ -364,10 +430,11 @@ class MyWindow(GUIFrame):
 
         # run in parallel to UI regular update of chart and process list
         self.running = True
-        threading.Thread(target=self.update_process_list, daemon=True).start()
+        #threading.Thread(target=self.update_process_list, daemon=True).start()
 
         # bind custom event to invoke function on_signal
         self.Bind(SIGNAL_EVT, self.on_signal)
+        self.Bind(SIGNAL_EVT_QSTAT, self.update_job_status)
 
         # start a thread to update cluster load
         worker = ClusterLoadUpdateThread(self)
@@ -489,6 +556,9 @@ class MyWindow(GUIFrame):
 
         self.on_reserve_check(None)
 
+    def update_job_status(self):
+        pass
+
     def update_msg_list(self):
         """Update messages on checkbox and init from file"""
         self.scheduler_msg_viewlist.DeleteAllItems()
@@ -507,56 +577,6 @@ class MyWindow(GUIFrame):
         self.log_data["Message List"].append(data)
         with open(self.logfile, 'w') as fa:
             json.dump(self.log_data, fa)
-
-    def update_process_list(self):
-        """Update a list of jobs status for a user every 5s"""
-        counter = 10
-        while self.running:
-            if counter % 10 == 0:
-                qstat_output = subprocess.check_output(self.qstat, shell=True).decode("ascii", errors="ignore")
-                self.qstat_viewlist.DeleteAllItems()
-
-                exclude = ['VNC Deskto', 'DCV Deskto']
-                for i, line in enumerate(qstat_output.split("\n")):
-                    if i > 1:
-                        pid = line[0:10].strip()
-                        # prior = line[11:18].strip()
-                        name = line[19:30].strip()
-                        user = line[30:42].strip()
-                        state = line[43:48].strip()
-                        started = line[49:68].strip()
-                        queue_data = line[69:99].strip()
-                        # jclass = line[100:128].strip()
-                        proc = line[129:148].strip()
-
-                        if name not in exclude:
-                            self.qstat_viewlist.AppendItem([pid, state, name, user, queue_data, proc, started])
-
-                # get message texts
-                for x in self.log_data["PID List"]:
-                    o_file = os.path.join(self.user_dir, 'ansysedt.o'+x)
-                    if os.path.exists(o_file):
-                        output_text = ''
-                        with open(o_file, 'r') as fi:
-                            for msgline in fi:
-                                output_text += msgline
-                            if output_text != '':
-                                self.add_log_entry(x, 'Submit Message: ' + output_text, scheduler=True)
-                        os.remove(o_file)
-
-                    e_file = os.path.join(self.user_dir, 'ansysedt.e' + x)
-                    if os.path.exists(e_file):
-                        error_text = ''
-                        with open(e_file, 'r') as fi:
-                            for msgline in fi:
-                                error_text += msgline
-                            if error_text != '':
-                                self.add_log_entry(x, 'Submit Error: ' + error_text, scheduler=True)
-                        os.remove(e_file)
-                counter = 0
-
-            time.sleep(0.5)
-            counter += 1
 
     def rmb_on_scheduler_msg_list(self, _unused):
         position = wx.ContextMenuEvent(type=wx.wxEVT_NULL)
