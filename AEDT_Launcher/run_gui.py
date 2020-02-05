@@ -42,13 +42,16 @@ pe_cores = {
     'electronics-8': 8,
     'electronics-16': 16,
     'electronics-20': 20,
-    'electronics-28': 28
+    'electronics-28': 28,
+    'electronics-32': 32
 }
 
 node_config_str = {
     'euc09':    '(20 cores, 128GB  / node)',
     'ottc01':   '(28 cores, 128GB  / node)',
-    'euc09lm':  '(28 cores, 512GB  / node)'
+    'euc09lm':  '(28 cores, 512GB  / node)',
+    "ottc02":   '(32 cores, 180GB  / node)',
+    "ottc02lm": '(32 cores, 370GB  / node)'
 }
 
 default_queue = u'euc09'
@@ -76,7 +79,25 @@ queue_dict = {
               "failed_cores": 0,
               "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8', 'electronics-16', 'electronics-28'],
               "default_pe": 'electronics-4'
-              }
+              },
+  "ottc02":  {"total_cores": 100,
+              "avail_cores": 0,
+              "used_cores": 100,
+              "reserved_cores": 0,
+              "failed_cores": 0,
+              "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
+                               'electronics-16', 'electronics-28', 'electronics-32'],
+              "default_pe": 'electronics-4'
+              },
+  "ottc02lm": {"total_cores": 100,
+               "avail_cores": 0,
+               "used_cores": 100,
+               "reserved_cores": 0,
+               "failed_cores": 0,
+               "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
+                                'electronics-16', 'electronics-28', 'electronics-32'],
+               "default_pe": 'electronics-4'
+               }
 }
 
 # list to keep information about running jobs
