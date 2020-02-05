@@ -55,50 +55,61 @@ node_config_str = {
 }
 
 default_queue = u'euc09'
-queue_dict = {
-  "euc09": {"total_cores": 100,
-            "avail_cores": 0,
-            "used_cores": 100,
-            "reserved_cores": 0,
-            "failed_cores": 0,
-            "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8', 'electronics-16', 'electronics-20'],
-            "default_pe": 'electronics-4'
-            },
-  "ottc01": {"total_cores": 100,
-             "avail_cores": 0,
-             "used_cores": 100,
-             "reserved_cores": 0,
-             "failed_cores": 0,
-             "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8', 'electronics-16', 'electronics-28'],
-             "default_pe": 'electronics-4'
-             },
-  "euc09lm": {"total_cores": 100,
-              "avail_cores": 0,
-              "used_cores": 100,
-              "reserved_cores": 0,
-              "failed_cores": 0,
-              "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8', 'electronics-16', 'electronics-28'],
-              "default_pe": 'electronics-4'
-              },
-  "ottc02":  {"total_cores": 100,
-              "avail_cores": 0,
-              "used_cores": 100,
-              "reserved_cores": 0,
-              "failed_cores": 0,
-              "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                               'electronics-16', 'electronics-28', 'electronics-32'],
-              "default_pe": 'electronics-4'
-              },
-  "ottc02lm": {"total_cores": 100,
-               "avail_cores": 0,
-               "used_cores": 100,
-               "reserved_cores": 0,
-               "failed_cores": 0,
-               "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                                'electronics-16', 'electronics-28', 'electronics-32'],
-               "default_pe": 'electronics-4'
-               }
-}
+queue_dict = OrderedDict([
+    ("euc09", {
+                "total_cores": 100,
+                "avail_cores": 0,
+                "used_cores": 100,
+                "reserved_cores": 0,
+                "failed_cores": 0,
+                "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
+                                 'electronics-16', 'electronics-20'],
+                "default_pe": 'electronics-4'
+              }
+     ),
+    ("ottc01", {
+                 "total_cores": 100,
+                 "avail_cores": 0,
+                 "used_cores": 100,
+                 "reserved_cores": 0,
+                 "failed_cores": 0,
+                 "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
+                                  'electronics-16', 'electronics-28'],
+                 "default_pe": 'electronics-4'
+                }
+     ),
+    ("euc09lm", {
+                  "total_cores": 100,
+                  "avail_cores": 0,
+                  "used_cores": 100,
+                  "reserved_cores": 0,
+                  "failed_cores": 0,
+                  "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
+                                   'electronics-16', 'electronics-28'],
+                  "default_pe": 'electronics-4'
+                }
+     ),
+    ("ottc02",  {
+                  "total_cores": 100,
+                  "avail_cores": 0,
+                  "used_cores": 100,
+                  "reserved_cores": 0,
+                  "failed_cores": 0,
+                  "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
+                                   'electronics-16', 'electronics-28', 'electronics-32'],
+                  "default_pe": 'electronics-4'}
+     ),
+    ("ottc02lm", {
+                   "total_cores": 100,
+                   "avail_cores": 0,
+                   "used_cores": 100,
+                   "reserved_cores": 0,
+                   "failed_cores": 0,
+                   "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
+                                    'electronics-16', 'electronics-28', 'electronics-32'],
+                   "default_pe": 'electronics-4'}
+   )
+])
 
 # list to keep information about running jobs
 qstat_list = []
@@ -193,7 +204,7 @@ class ClusterLoadUpdateThread(threading.Thread):
 
                 for queue_elem in q_statistics.findall("Queues/Queue"):
                     queue_name = queue_elem.get("name")
-                    if queue_name in ["euc09", "ottc01", "euc09lm"]:
+                    if queue_name in queue_dict:
                         total_cores = 0
                         used_cores = 0
                         reserved_cores = 0
@@ -406,22 +417,14 @@ class MyWindow(GUIFrame):
         self.load_grid.SetColLabelValue(4, 'Total')
         self.load_grid.SetColSize(4, 80)
 
-        self.load_grid.SetRowLabelValue(0, "euc09")
-        self.load_grid.SetRowLabelValue(1, "ottc01")
-        self.load_grid.SetRowLabelValue(2, "euc09lm")
+        for i, queue_key in enumerate(queue_dict):
+            self.load_grid.AppendRows(1)
+            self.load_grid.SetRowLabelValue(i, queue_key)
 
-        # colors
-        self.load_grid.SetCellBackgroundColour(0, 0, "light green")
-        self.load_grid.SetCellBackgroundColour(1, 0, "light green")
-        self.load_grid.SetCellBackgroundColour(2, 0, "light green")
-
-        self.load_grid.SetCellBackgroundColour(0, 1, "red")
-        self.load_grid.SetCellBackgroundColour(1, 1, "red")
-        self.load_grid.SetCellBackgroundColour(2, 1, "red")
-
-        self.load_grid.SetCellBackgroundColour(0, 2, "light grey")
-        self.load_grid.SetCellBackgroundColour(1, 2, "light grey")
-        self.load_grid.SetCellBackgroundColour(2, 2, "light grey")
+            # colors
+            self.load_grid.SetCellBackgroundColour(i, 0, "light green")
+            self.load_grid.SetCellBackgroundColour(i, 1, "red")
+            self.load_grid.SetCellBackgroundColour(i, 2, "light grey")
 
         # Disable Batch-mode radio button
         if viz_type == 'DCV':
@@ -477,7 +480,7 @@ class MyWindow(GUIFrame):
     def on_signal(self, _unused_event):
         """Update UI when signal comes from subthread. Should be updated always from main thread"""
         # run in list to keep order
-        for i, queue_name in enumerate(["euc09", "ottc01", "euc09lm"]):
+        for i, queue_name in enumerate(queue_dict):
             self.load_grid.SetCellValue(i, 0, str(queue_dict[queue_name]["avail_cores"]))
             self.load_grid.SetCellValue(i, 1, str(queue_dict[queue_name]["used_cores"]))
             self.load_grid.SetCellValue(i, 2, str(queue_dict[queue_name]["reserved_cores"]))
