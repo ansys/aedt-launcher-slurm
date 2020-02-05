@@ -828,9 +828,15 @@ class MyWindow(GUIFrame):
 
         self.path_textbox.Value = path
 
-    def _shutdown_app(self, _unused_event):
+    def shutdown_app(self, _unused_event):
         """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
         self.timer_stop()
+        lock_file = os.path.join(self.user_dir, '.aedt', 'ui.lock')
+        try:
+            os.remove(lock_file)
+        except FileNotFoundError:
+            pass
+
         while len(threading.enumerate()) > 1:  # possible solution to wait until all threads are dead
             time.sleep(0.25)
 
@@ -916,25 +922,19 @@ def main():
     time.sleep(0.7)
 
     app = wx.App()
-    # try:
-    #     me = singleton.SingleInstance()  # should be assigned to "me", otherwise does not work
-    # except singleton.SingleInstanceException:
-    #     result = add_message("Cannot open multiple instances. Do you really want to open new instance?",
-    #                          "Instance error", "?")
-    #
-    #     if result == wx.ID_OK:
-    #         command = 'find /ekm/tmp/. -name "*AEDT_Launcher*" -delete'
-    #         subprocess.call([command], shell=True)
-    #         ex = MyWindow(None, "Copy")
-    #         ex.Show()
-    #         app.MainLoop()
-    #
-    #     return
-
-    # drop file to the log in the class to remove it manually in case if smth will go wrong
-    # otherwise remove it for all users (if you do not have all permissions will remove only yours folder:
-    # find /ekm/tmp/. -name "*AEDT_Launcher*" -delete
     ex = MyWindow(None)
+    lock_file = os.path.join(ex.user_dir, '.aedt', 'ui.lock')
+    if os.path.exists(lock_file):
+        result = add_message(("Application was not properly closed or you have multiple instances opened. " +
+                              "Do you really want to open new instance?"),
+                             "Instance error", "?")
+        if result != wx.ID_OK:
+            ex.Close()
+            return
+    else:
+        with open(lock_file, "w") as file:
+            file.write("1")
+
     ex.Show()
     app.MainLoop()
 
