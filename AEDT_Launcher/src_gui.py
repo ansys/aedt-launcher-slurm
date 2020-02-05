@@ -260,7 +260,7 @@ class GUIFrame ( wx.Frame ):
 		self.load_grid = wx.grid.Grid( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, 0 )
 
 		# Grid
-		self.load_grid.CreateGrid( 3, 5 )
+		self.load_grid.CreateGrid( 0, 5 )
 		self.load_grid.EnableEditing( False )
 		self.load_grid.EnableGridLines( True )
 		self.load_grid.EnableDragGridSize( False )
