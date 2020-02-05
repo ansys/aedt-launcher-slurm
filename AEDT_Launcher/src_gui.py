@@ -437,7 +437,7 @@ class GUIFrame ( wx.Frame ):
 		self.Centre( wx.BOTH )
 
 		# Connect Events
-		self.Bind( wx.EVT_CLOSE, self._shutdown_app )
+		self.Bind( wx.EVT_CLOSE, self.shutdown_app )
 		self.submit_mode_radiobox.Bind( wx.EVT_RADIOBOX, self.select_mode )
 		self.queue_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_queue )
 		self.pe_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_pe )
@@ -451,7 +451,7 @@ class GUIFrame ( wx.Frame ):
 		self.scheduler_msg_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_CONTEXT_MENU, self.rmb_on_scheduler_msg_list, id = wx.ID_ANY )
 		self.save_button.Bind( wx.EVT_BUTTON, self.save_default_settings )
 		self.reset_button.Bind( wx.EVT_BUTTON, self.reset_settings )
-		self.close_button.Bind( wx.EVT_BUTTON, self._shutdown_app )
+		self.close_button.Bind( wx.EVT_BUTTON, self.shutdown_app )
 		self.delete_build_button.Bind( wx.EVT_BUTTON, self.delete_row )
 		self.add_build_button.Bind( wx.EVT_BUTTON, self.add_new_build )
 
@@ -461,7 +461,7 @@ class GUIFrame ( wx.Frame ):
 
 
 	# Virtual event handlers, overide them in your derived class
-	def _shutdown_app( self, event ):
+	def shutdown_app( self, event ):
 		event.Skip()
 
 	def select_mode( self, event ):
