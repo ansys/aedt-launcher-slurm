@@ -32,7 +32,8 @@ install_dir = OrderedDict([
     (u"2019 R1", '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64'),
     (u"2019 R2", '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64'),
     (u"2019 R3", '/ott/apps/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64'),
-    (u"2020 R1", '/ott/apps/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64')
+    (u"2020 R1", '/ott/apps/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64'),
+    (u"2020 R2_Daily_Cert", '/ott/apps/daily_builds/linx64/v202_EBU_Certified_Daily/AnsysEM/AnsysEM20.2/Linux64')
 ])
 
 # Define default number of cores for the selected PE (interactive mode)
@@ -55,61 +56,45 @@ node_config_str = {
 }
 
 default_queue = u'euc09'
+# dictionary to define parallel environments for each queue
 queue_dict = OrderedDict([
     ("euc09", {
-                "total_cores": 100,
-                "avail_cores": 0,
-                "used_cores": 100,
-                "reserved_cores": 0,
-                "failed_cores": 0,
                 "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
                                  'electronics-16', 'electronics-20'],
                 "default_pe": 'electronics-4'
               }
      ),
     ("ottc01", {
-                 "total_cores": 100,
-                 "avail_cores": 0,
-                 "used_cores": 100,
-                 "reserved_cores": 0,
-                 "failed_cores": 0,
                  "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
                                   'electronics-16', 'electronics-28'],
                  "default_pe": 'electronics-4'
                 }
      ),
     ("euc09lm", {
-                  "total_cores": 100,
-                  "avail_cores": 0,
-                  "used_cores": 100,
-                  "reserved_cores": 0,
-                  "failed_cores": 0,
                   "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
                                    'electronics-16', 'electronics-28'],
                   "default_pe": 'electronics-4'
                 }
      ),
     ("ottc02",  {
-                  "total_cores": 100,
-                  "avail_cores": 0,
-                  "used_cores": 100,
-                  "reserved_cores": 0,
-                  "failed_cores": 0,
                   "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
                                    'electronics-16', 'electronics-28', 'electronics-32'],
                   "default_pe": 'electronics-4'}
      ),
     ("ottc02lm", {
-                   "total_cores": 100,
-                   "avail_cores": 0,
-                   "used_cores": 100,
-                   "reserved_cores": 0,
-                   "failed_cores": 0,
                    "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
                                     'electronics-16', 'electronics-28', 'electronics-32'],
                    "default_pe": 'electronics-4'}
    )
 ])
+
+# create keys for usage statistics that would be updated later
+for queue_val in queue_dict.values():
+    queue_val["total_cores"] = 100
+    queue_val["avail_cores"] = 0
+    queue_val["used_cores"] = 100
+    queue_val["reserved_cores"] = 0
+    queue_val["failed_cores"] = 0
 
 # list to keep information about running jobs
 qstat_list = []
