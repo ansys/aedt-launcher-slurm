@@ -58,61 +58,45 @@ node_config_str = {
 
 # dictionary in which we will pop up dynamically information about the load from the OverWatch
 default_queue = u'euc09'
+# dictionary to define parallel environments for each queue
 queue_dict = OrderedDict([
     ("euc09", {
-                "total_cores": 100,
-                "avail_cores": 0,
-                "used_cores": 100,
-                "reserved_cores": 0,
-                "failed_cores": 0,
                 "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
                                  'electronics-16', 'electronics-20'],
                 "default_pe": 'electronics-4'
               }
      ),
     ("ottc01", {
-                 "total_cores": 100,
-                 "avail_cores": 0,
-                 "used_cores": 100,
-                 "reserved_cores": 0,
-                 "failed_cores": 0,
                  "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
                                   'electronics-16', 'electronics-28'],
                  "default_pe": 'electronics-4'
                 }
      ),
     ("euc09lm", {
-                  "total_cores": 100,
-                  "avail_cores": 0,
-                  "used_cores": 100,
-                  "reserved_cores": 0,
-                  "failed_cores": 0,
                   "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
                                    'electronics-16', 'electronics-28'],
                   "default_pe": 'electronics-4'
                 }
      ),
     ("ottc02",  {
-                  "total_cores": 100,
-                  "avail_cores": 0,
-                  "used_cores": 100,
-                  "reserved_cores": 0,
-                  "failed_cores": 0,
                   "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
                                    'electronics-16', 'electronics-28', 'electronics-32'],
                   "default_pe": 'electronics-4'}
      ),
     ("ottc02lm", {
-                   "total_cores": 100,
-                   "avail_cores": 0,
-                   "used_cores": 100,
-                   "reserved_cores": 0,
-                   "failed_cores": 0,
                    "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
                                     'electronics-16', 'electronics-28', 'electronics-32'],
                    "default_pe": 'electronics-4'}
    )
 ])
+
+# create keys for usage statistics that would be updated later
+for queue_val in queue_dict.values():
+    queue_val["total_cores"] = 100
+    queue_val["avail_cores"] = 0
+    queue_val["used_cores"] = 100
+    queue_val["reserved_cores"] = 0
+    queue_val["failed_cores"] = 0
 
 # list to keep information about running jobs
 qstat_list = []
