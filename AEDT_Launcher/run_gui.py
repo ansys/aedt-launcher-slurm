@@ -22,7 +22,7 @@ import re
 __authors__ = "Maksim Beliaev, Leon Voss"
 __version__ = "v2.1"
 
-# Simple dictionary for the versions (* at the beginning) for the default version
+# Simple dictionary for the versions
 default_version = u"2019 R3"
 install_dir = OrderedDict([
     (u"R18.2",   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64'),
@@ -33,7 +33,8 @@ install_dir = OrderedDict([
     (u"2019 R2", '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64'),
     (u"2019 R3", '/ott/apps/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64'),
     (u"2020 R1", '/ott/apps/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64'),
-    (u"2020 R2_Daily_Cert", '/ott/apps/daily_builds/linx64/v202_EBU_Certified_Daily/AnsysEM/AnsysEM20.2/Linux64')
+    (u"2020 R2_Daily_Cert", '/ott/apps/daily_builds/linx64/v202_EBU_Certified_Daily/AnsysEM/AnsysEM20.2/Linux64'),
+    (u"2020 R2_Weekly_Cert", '/ott/apps/daily_builds/linx64/v202_EBU_Certified_Weekly/AnsysEM/AnsysEM20.2/Linux64')
 ])
 
 # Define default number of cores for the selected PE (interactive mode)
@@ -55,6 +56,7 @@ node_config_str = {
     "ottc02lm": '(32 cores, 370GB  / node)'
 }
 
+# dictionary in which we will pop up dynamically information about the load from the OverWatch
 default_queue = u'euc09'
 # dictionary to define parallel environments for each queue
 queue_dict = OrderedDict([
@@ -827,6 +829,7 @@ class MyWindow(GUIFrame):
         self.write_custom_build()
 
     def set_project_path(self, _unused_event):
+        """Invoked when clicked on "..." set_path_button. Creates a dialogue where user can select directory"""
         get_dir_dialogue = wx.DirDialog(None, "Choose directory:", style=wx.DD_DEFAULT_STYLE)
         if get_dir_dialogue.ShowModal() == wx.ID_OK:
             path = get_dir_dialogue.GetPath()
@@ -890,7 +893,15 @@ def check_ssh():
             break
 
 
-def add_message(message, titel="", icon="?"):
+def add_message(message, title="", icon="?"):
+    """
+    Create a dialog with different set of buttons
+    :param message: Message you want to show
+    :param title:
+    :param icon: depending on the input will create either question dialogue (?), error (!) or just information
+    :return Answer of the user eg wx.OK
+    """
+
     if icon == "?":
         icon = wx.OK | wx.CANCEL | wx.ICON_QUESTION
     elif icon == "!":
@@ -898,7 +909,7 @@ def add_message(message, titel="", icon="?"):
     else:
         icon = wx.OK | wx.ICON_INFORMATION
 
-    dlg_qdel = wx.MessageDialog(None, message, titel, icon)
+    dlg_qdel = wx.MessageDialog(None, message, title, icon)
     result = dlg_qdel.ShowModal()
     dlg_qdel.Destroy()
 
@@ -907,7 +918,7 @@ def add_message(message, titel="", icon="?"):
 
 def init_combobox(entry_list, combobox, default_value=''):
     """
-    Fills a wx.Combobox lement with the entries in a list
+    Fills a wx.Combobox element with the entries in a list
     Input parameters
     :param entry_list: List of text entries to appear in the combobox element
     :param combobox: object pointing to the combobox element
