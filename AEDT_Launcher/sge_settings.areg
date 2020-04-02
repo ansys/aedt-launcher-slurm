@@ -1,0 +1,6 @@
+$begin 'AddEntries'
+	'Desktop/Settings/ProjectOptions/GSHeadNodeName'=''
+	'Desktop/Settings/ProjectOptions/GSSchedulerHeadNodeName'=''
+	'Desktop/Settings/ProjectOptions/GSSchedulerType'='sge'
+	'Desktop/Settings/ProjectOptions/GSUserName'=''
+$end 'AddEntries'

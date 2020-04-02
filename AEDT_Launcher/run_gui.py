@@ -1,94 +1,47 @@
-from src_gui import GUIFrame
-from datetime import datetime
-from collections import OrderedDict
+# IMPORTANT usage note:
+# place sge_settings.areg at the same folder where script is located
+# modify cluster_configuration.json according to cluster configuration and builds available
 
-import xml.etree.ElementTree as ET
-
-import signal
-import os
-import getpass
-import socket
 import errno
+import getpass
 import json
-import subprocess
-import time
-import threading
-import wx
-import wx.dataview
-import wx._core
-import shutil
+import os
 import re
+import shutil
+import signal
+import socket
+import subprocess
+import threading
+import time
+import xml.etree.ElementTree as ET
+from collections import OrderedDict
+from datetime import datetime
+
+import wx
+import wx._core
+import wx.dataview
+
+from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v2.1"
+__version__ = "v2.2"
 
-# Simple dictionary for the versions
-default_version = u"2019 R3"
-install_dir = OrderedDict([
-    (u"R18.2",   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64'),
-    (u"R19.0",   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64'),
-    (u"R19.1",   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64'),
-    (u"R19.2",   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64'),
-    (u"2019 R1", '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64'),
-    (u"2019 R2", '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64'),
-    (u"2019 R3", '/ott/apps/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64'),
-    (u"2020 R1", '/ott/apps/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64'),
-    (u"2020 R2_Daily_Cert", '/ott/apps/daily_builds/linx64/v202_EBU_Certified_Daily/AnsysEM/AnsysEM20.2/Linux64'),
-    (u"2020 R2_Weekly_Cert", '/ott/apps/daily_builds/linx64/v202_EBU_Certified_Weekly/AnsysEM/AnsysEM20.2/Linux64')
-])
+# read cluster configuration from a file
+with open("cluster_configuration.json") as file:
+    cluster_config = json.load(file, object_pairs_hook=OrderedDict)
+
+# dictionary for the versions
+default_version = cluster_config["default_version"]
+install_dir = cluster_config["install_dir"]
 
 # Define default number of cores for the selected PE (interactive mode)
-pe_cores = {
-    'electronics-2': 2,
-    'electronics-4': 4,
-    'electronics-8': 8,
-    'electronics-16': 16,
-    'electronics-20': 20,
-    'electronics-28': 28,
-    'electronics-32': 32
-}
-
-node_config_str = {
-    'euc09':    '(20 cores, 128GB  / node)',
-    'ottc01':   '(28 cores, 128GB  / node)',
-    'euc09lm':  '(28 cores, 512GB  / node)',
-    "ottc02":   '(32 cores, 180GB  / node)',
-    "ottc02lm": '(32 cores, 370GB  / node)'
-}
+pe_cores = cluster_config["pe_cores"]
+node_config_str = cluster_config["node_config_str"]
 
 # dictionary in which we will pop up dynamically information about the load from the OverWatch
-default_queue = u'euc09'
+default_queue = cluster_config["default_queue"]
 # dictionary to define parallel environments for each queue
-queue_dict = OrderedDict([
-    ("euc09", {
-                "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                                 'electronics-16', 'electronics-20'],
-                "default_pe": 'electronics-4'
-              }
-     ),
-    ("ottc01", {
-                 "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                                  'electronics-16', 'electronics-28'],
-                 "default_pe": 'electronics-4'
-                }
-     ),
-    ("euc09lm", {
-                  "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                                   'electronics-16', 'electronics-28'],
-                  "default_pe": 'electronics-4'
-                }
-     ),
-    ("ottc02",  {
-                  "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                                   'electronics-16', 'electronics-28', 'electronics-32'],
-                  "default_pe": 'electronics-4'}
-     ),
-    ("ottc02lm", {
-                   "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                                    'electronics-16', 'electronics-28', 'electronics-32'],
-                   "default_pe": 'electronics-4'}
-   )
-])
+queue_dict = cluster_config["queue_dict"]
 
 # create keys for usage statistics that would be updated later
 for queue_val in queue_dict.values():
@@ -175,19 +128,6 @@ class ClusterLoadUpdateThread(threading.Thread):
                 with open(xml_file, "r") as file:
                     data = file.read()
                 q_statistics = ET.fromstring(data)
-
-                """
-                 Example of output of qstat -g c
-                CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
-                --------------------------------------------------------------------------------
-                all.q                             -NA-      0      0      0      0      0      0
-                dcv                               0.64     32      0      4     36      0      0
-                euc09                             0.47    742      0    218    960      0      0
-                euc09gpu                          0.00      0      0     56     56      0      0
-                euc09lm                           0.37     56      0     84    140     28      0
-                ottc01                            0.43   1040      0    276   1344      0     28
-                vnc                               0.63     35      0     37     72      0      0
-                """
 
                 for queue_elem in q_statistics.findall("Queues/Queue"):
                     queue_name = queue_elem.get("name")
@@ -325,13 +265,13 @@ class LauncherWindow(GUIFrame):
         vnc_nodes = ['ottvnc']
         dcv_nodes = ['eurgs']
         viz_type = None
-        for x in vnc_nodes:
-            if x in self.display_node:
+        for node in vnc_nodes:
+            if node in self.display_node:
                 viz_type = 'VNC'
                 break
-        if viz_type is None:
-            for x in dcv_nodes:
-                if x in self.display_node:
+        if not viz_type:
+            for node in dcv_nodes:
+                if node in self.display_node:
                     viz_type = 'DCV'
                     break
 
@@ -453,7 +393,6 @@ class LauncherWindow(GUIFrame):
 
         # run in parallel to UI regular update of chart and process list
         self.running = True
-        #threading.Thread(target=self.update_process_list, daemon=True).start()
 
         # bind custom event to invoke function on_signal
         self.Bind(SIGNAL_EVT, self.on_signal)
@@ -796,8 +735,10 @@ class LauncherWindow(GUIFrame):
         subprocess.call([command], shell=True)
 
         # set SGE scheduler
-        command = '{} -set -ProductName {}  -FromFile "/ott/apps/software/AEDT_Launcher/sge_settings.areg"'.format(
-                                                            registry_file, self.products[self.m_select_version1.Value])
+        path_sge_settings = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sge_settings.areg")
+        command = '{} -set -ProductName {}  -FromFile "{}"'.format(registry_file,
+                                                                   self.products[self.m_select_version1.Value],
+                                                                   path_sge_settings)
         subprocess.call([command], shell=True)
 
     def m_update_msg_list(self, _unused_event):
