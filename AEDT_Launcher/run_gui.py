@@ -1,3 +1,5 @@
+# IMPORTANT usage note:
+# place sge_settings.areg at the same folder where script is located
 from src_gui import GUIFrame
 from datetime import datetime
 from collections import OrderedDict
@@ -176,19 +178,6 @@ class ClusterLoadUpdateThread(threading.Thread):
                     data = file.read()
                 q_statistics = ET.fromstring(data)
 
-                """
-                 Example of output of qstat -g c
-                CLUSTER QUEUE                   CQLOAD   USED    RES  AVAIL  TOTAL aoACDS  cdsuE
-                --------------------------------------------------------------------------------
-                all.q                             -NA-      0      0      0      0      0      0
-                dcv                               0.64     32      0      4     36      0      0
-                euc09                             0.47    742      0    218    960      0      0
-                euc09gpu                          0.00      0      0     56     56      0      0
-                euc09lm                           0.37     56      0     84    140     28      0
-                ottc01                            0.43   1040      0    276   1344      0     28
-                vnc                               0.63     35      0     37     72      0      0
-                """
-
                 for queue_elem in q_statistics.findall("Queues/Queue"):
                     queue_name = queue_elem.get("name")
                     if queue_name in queue_dict:
@@ -325,13 +314,13 @@ class MyWindow(GUIFrame):
         vnc_nodes = ['ottvnc']
         dcv_nodes = ['eurgs']
         viz_type = None
-        for x in vnc_nodes:
-            if x in self.display_node:
+        for node in vnc_nodes:
+            if node in self.display_node:
                 viz_type = 'VNC'
                 break
-        if viz_type is None:
-            for x in dcv_nodes:
-                if x in self.display_node:
+        if not viz_type:
+            for node in dcv_nodes:
+                if node in self.display_node:
                     viz_type = 'DCV'
                     break
 
@@ -453,7 +442,6 @@ class MyWindow(GUIFrame):
 
         # run in parallel to UI regular update of chart and process list
         self.running = True
-        #threading.Thread(target=self.update_process_list, daemon=True).start()
 
         # bind custom event to invoke function on_signal
         self.Bind(SIGNAL_EVT, self.on_signal)
@@ -776,8 +764,10 @@ class MyWindow(GUIFrame):
         subprocess.call([command], shell=True)
 
         # set SGE scheduler
-        command = '{} -set -ProductName {}  -FromFile "/ott/apps/software/AEDT_Launcher/sge_settings.areg"'.format(
-                                                            registry_file, self.products[self.m_select_version1.Value])
+        path_sge_settings = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sge_settings.areg")
+        command = '{} -set -ProductName {}  -FromFile "{}"'.format(registry_file,
+                                                                   self.products[self.m_select_version1.Value],
+                                                                   path_sge_settings)
         subprocess.call([command], shell=True)
 
     def m_update_msg_list(self, _unused_event):
