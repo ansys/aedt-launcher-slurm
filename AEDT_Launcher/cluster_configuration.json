@@ -1,0 +1,86 @@
+{
+    "default_version": "2020 R1",
+    "install_dir": {
+        "R18.2": "/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64",
+        "R19.0": "/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64",
+        "R19.1": "/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64",
+        "R19.2": "/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64",
+        "2019 R1": "/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64",
+        "2019 R2": "/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64",
+        "2019 R3": "/ott/apps/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64",
+        "2020 R1": "/ott/apps/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64",
+        "2020 R2_Daily_Cert": "/ott/apps/daily_builds/linx64/v202_EBU_Certified_Daily/AnsysEM/AnsysEM20.2/Linux64",
+        "2020 R2_Weekly_Cert": "/ott/apps/daily_builds/linx64/v202_EBU_Certified_Weekly/AnsysEM/AnsysEM20.2/Linux64"
+    },
+    "pe_cores": {
+        "electronics-2": 2,
+        "electronics-4": 4,
+        "electronics-8": 8,
+        "electronics-16": 16,
+        "electronics-20": 20,
+        "electronics-28": 28,
+        "electronics-32": 32
+    },
+    "node_config_str": {
+        "euc09": "(20 cores, 128GB  / node)",
+        "ottc01": "(28 cores, 128GB  / node)",
+        "euc09lm": "(28 cores, 512GB  / node)",
+        "ottc02": "(32 cores, 180GB  / node)",
+        "ottc02lm": "(32 cores, 370GB  / node)"
+    },
+    "default_queue": "euc09",
+    "queue_dict": {
+        "euc09": {
+            "parallel_env": [
+                "electronics-2",
+                "electronics-4",
+                "electronics-8",
+                "electronics-16",
+                "electronics-20"
+            ],
+            "default_pe": "electronics-4"
+        },
+        "ottc01": {
+            "parallel_env": [
+                "electronics-2",
+                "electronics-4",
+                "electronics-8",
+                "electronics-16",
+                "electronics-28"
+            ],
+            "default_pe": "electronics-4"
+        },
+        "euc09lm": {
+            "parallel_env": [
+                "electronics-2",
+                "electronics-4",
+                "electronics-8",
+                "electronics-16",
+                "electronics-28"
+            ],
+            "default_pe": "electronics-4"
+        },
+        "ottc02": {
+            "parallel_env": [
+                "electronics-2",
+                "electronics-4",
+                "electronics-8",
+                "electronics-16",
+                "electronics-28",
+                "electronics-32"
+            ],
+            "default_pe": "electronics-4"
+        },
+        "ottc02lm": {
+            "parallel_env": [
+                "electronics-2",
+                "electronics-4",
+                "electronics-8",
+                "electronics-16",
+                "electronics-28",
+                "electronics-32"
+            ],
+            "default_pe": "electronics-4"
+        }
+    }
+}
