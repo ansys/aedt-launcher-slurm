@@ -1,4 +1,4 @@
-{
+{   "path_to_ssh": "/nfs/ott/apps/admin/run_me_first.sh",
     "default_version": "2020 R1",
     "install_dir": {
         "R18.2": "/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64",

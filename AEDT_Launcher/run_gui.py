@@ -30,6 +30,8 @@ __version__ = "v2.2"
 with open("cluster_configuration.json") as file:
     cluster_config = json.load(file, object_pairs_hook=OrderedDict)
 
+path_to_ssh = cluster_config["path_to_ssh"]
+
 # dictionary for the versions
 default_version = cluster_config["default_version"]
 install_dir = cluster_config["install_dir"]
@@ -849,7 +851,7 @@ def check_ssh():
             if os.path.isdir(ssh_path):
                 shutil.rmtree(ssh_path)
 
-            proc = subprocess.Popen(["/nfs/ott/apps/admin/run_me_first.sh"], stdin=subprocess.PIPE, shell=True)
+            proc = subprocess.Popen([path_to_ssh], stdin=subprocess.PIPE, shell=True)
             proc.communicate(input=b"\n\n\n")
             break
 
