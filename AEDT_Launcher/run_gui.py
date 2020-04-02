@@ -27,7 +27,8 @@ __authors__ = "Maksim Beliaev, Leon Voss"
 __version__ = "v2.2"
 
 # read cluster configuration from a file
-with open("cluster_configuration.json") as file:
+cluster_configuration_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "cluster_configuration.json")
+with open(cluster_configuration_file) as file:
     cluster_config = json.load(file, object_pairs_hook=OrderedDict)
 
 path_to_ssh = cluster_config["path_to_ssh"]
