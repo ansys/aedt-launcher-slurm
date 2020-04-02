@@ -1,96 +1,47 @@
 # IMPORTANT usage note:
 # place sge_settings.areg at the same folder where script is located
-from src_gui import GUIFrame
-from datetime import datetime
-from collections import OrderedDict
+# modify cluster_configuration.json according to cluster configuration and builds available
 
-import xml.etree.ElementTree as ET
-
-import signal
-import os
-import getpass
-import socket
 import errno
+import getpass
 import json
-import subprocess
-import time
-import threading
-import wx
-import wx.dataview
-import wx._core
-import shutil
+import os
 import re
+import shutil
+import signal
+import socket
+import subprocess
+import threading
+import time
+import xml.etree.ElementTree as ET
+from collections import OrderedDict
+from datetime import datetime
+
+import wx
+import wx._core
+import wx.dataview
+
+from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v2.1"
+__version__ = "v2.2"
 
-# Simple dictionary for the versions
-default_version = u"2019 R3"
-install_dir = OrderedDict([
-    (u"R18.2",   '/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64'),
-    (u"R19.0",   '/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64'),
-    (u"R19.1",   '/ott/apps/software/ANSYS_EM_191/AnsysEM19.1/Linux64'),
-    (u"R19.2",   '/ott/apps/software/ANSYS_EM_192/AnsysEM19.2/Linux64'),
-    (u"2019 R1", '/ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64'),
-    (u"2019 R2", '/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64'),
-    (u"2019 R3", '/ott/apps/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64'),
-    (u"2020 R1", '/ott/apps/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64'),
-    (u"2020 R2_Daily_Cert", '/ott/apps/daily_builds/linx64/v202_EBU_Certified_Daily/AnsysEM/AnsysEM20.2/Linux64'),
-    (u"2020 R2_Weekly_Cert", '/ott/apps/daily_builds/linx64/v202_EBU_Certified_Weekly/AnsysEM/AnsysEM20.2/Linux64')
-])
+# read cluster configuration from a file
+with open("cluster_configuration.json") as file:
+    cluster_config = json.load(file, object_pairs_hook=OrderedDict)
+
+# dictionary for the versions
+default_version = cluster_config["default_version"]
+install_dir = cluster_config["install_dir"]
 
 # Define default number of cores for the selected PE (interactive mode)
-pe_cores = {
-    'electronics-2': 2,
-    'electronics-4': 4,
-    'electronics-8': 8,
-    'electronics-16': 16,
-    'electronics-20': 20,
-    'electronics-28': 28,
-    'electronics-32': 32
-}
-
-node_config_str = {
-    'euc09':    '(20 cores, 128GB  / node)',
-    'ottc01':   '(28 cores, 128GB  / node)',
-    'euc09lm':  '(28 cores, 512GB  / node)',
-    "ottc02":   '(32 cores, 180GB  / node)',
-    "ottc02lm": '(32 cores, 370GB  / node)'
-}
+pe_cores = cluster_config["pe_cores"]
+node_config_str = cluster_config["node_config_str"]
 
 # dictionary in which we will pop up dynamically information about the load from the OverWatch
-default_queue = u'euc09'
+default_queue = cluster_config["default_queue"]
 # dictionary to define parallel environments for each queue
-queue_dict = OrderedDict([
-    ("euc09", {
-                "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                                 'electronics-16', 'electronics-20'],
-                "default_pe": 'electronics-4'
-              }
-     ),
-    ("ottc01", {
-                 "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                                  'electronics-16', 'electronics-28'],
-                 "default_pe": 'electronics-4'
-                }
-     ),
-    ("euc09lm", {
-                  "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                                   'electronics-16', 'electronics-28'],
-                  "default_pe": 'electronics-4'
-                }
-     ),
-    ("ottc02",  {
-                  "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                                   'electronics-16', 'electronics-28', 'electronics-32'],
-                  "default_pe": 'electronics-4'}
-     ),
-    ("ottc02lm", {
-                   "parallel_env": ['electronics-2', 'electronics-4', 'electronics-8',
-                                    'electronics-16', 'electronics-28', 'electronics-32'],
-                   "default_pe": 'electronics-4'}
-   )
-])
+queue_dict = cluster_config["queue_dict"]
 
 # create keys for usage statistics that would be updated later
 for queue_val in queue_dict.values():
