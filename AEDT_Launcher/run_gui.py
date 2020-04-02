@@ -289,7 +289,7 @@ class ClusterLoadUpdateThread(threading.Thread):
             counter += 1
 
 
-class MyWindow(GUIFrame):
+class LauncherWindow(GUIFrame):
     def __init__(self, parent):
         # Initialize the main form
         GUIFrame.__init__(self, parent)
@@ -502,7 +502,7 @@ class MyWindow(GUIFrame):
         init_combobox(list(install_dir.keys()), self.m_select_version1, default_version)
 
         with open(self.user_build_json, "w") as file:
-            json.dump(self.builds_data, file)
+            json.dump(self.builds_data, file, indent=4)
 
     def save_default_settings(self, _unused_event):
         self.default_settings = {
@@ -612,7 +612,7 @@ class MyWindow(GUIFrame):
             self.scheduler_msg_viewlist.PrependItem(tab_data)
         self.log_data["Message List"].append(data)
         with open(self.logfile, 'w') as fa:
-            json.dump(self.log_data, fa)
+            json.dump(self.log_data, fa, indent=4)
 
     def rmb_on_scheduler_msg_list(self, _unused_event):
         position = wx.ContextMenuEvent(type=wx.wxEVT_NULL)
@@ -696,7 +696,12 @@ class MyWindow(GUIFrame):
             env = re.sub(",+", ",", env)
             env = env.rstrip(",").lstrip(",")
 
-        self.set_registry(aedt_path)
+        try:
+            self.set_registry(aedt_path)
+        except FileNotFoundError:
+            add_message("Verify project directory. Probably user name was changed", "Wrong project path", "!")
+            return
+
         self.usage_stat()
 
         op_mode = self.submit_mode_radiobox.GetSelection()
@@ -738,6 +743,21 @@ class MyWindow(GUIFrame):
             file.write(self.m_select_version1.Value + "\t" + timestamp + "\n")
 
     def set_registry(self, aedt_path):
+        """
+        Function to set registry for each run of EDT since each run is happening on different Linux node.
+        Disables:
+        1. Question on product improvement
+        2. Question on Project directory, this is grabbed from UI
+        3. Welcome message
+        4. Question on personal lib
+
+        Sets:
+        1. EDT Installation path
+        2. SGE scheduler as default
+
+        :param aedt_path: path to the installation directory of EDT
+        :return: None
+        """
         if not os.path.isdir(self.path_textbox.Value):
             os.mkdir(self.path_textbox.Value)
 
@@ -942,7 +962,7 @@ def main():
     time.sleep(0.7)
 
     app = wx.App()
-    ex = MyWindow(None)
+    ex = LauncherWindow(None)
     lock_file = os.path.join(ex.user_dir, '.aedt', 'ui.lock')
     if os.path.exists(lock_file):
         result = add_message(("Application was not properly closed or you have multiple instances opened. " +
