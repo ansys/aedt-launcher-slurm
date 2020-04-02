@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Electronics Desktop Launcher
+Comment=Tool to start ANSYS Electronics Desktop in Linux environment
+Exec=sh -c '/ekm/software/anaconda3/bin/python3 "/ott/apps/software/AEDT_Launcher/run_gui.py"'
+Icon=/ott/apps/software/AEDT_Launcher/ElectronicsDesktop.png
+Terminal=false
+Type=Application
