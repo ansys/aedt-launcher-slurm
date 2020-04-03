@@ -11,6 +11,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
 import threading
 import time
 import xml.etree.ElementTree as ET
@@ -28,23 +29,38 @@ __version__ = "v2.2"
 
 # read cluster configuration from a file
 cluster_configuration_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "cluster_configuration.json")
-with open(cluster_configuration_file) as file:
-    cluster_config = json.load(file, object_pairs_hook=OrderedDict)
+try:
+    with open(cluster_configuration_file) as file:
+        cluster_config = json.load(file, object_pairs_hook=OrderedDict)
+except FileNotFoundError:
+    print("\nConfiguration file does not exist!\nCheck existence of " + cluster_configuration_file)
+    sys.exit()
+except json.decoder.JSONDecodeError:
+    print("\nConfiguration file is wrong!\nCheck format of {} \nOnly double quotes are allowed!".format(
+        cluster_configuration_file))
+    sys.exit()
 
-path_to_ssh = cluster_config["path_to_ssh"]
 
-# dictionary for the versions
-default_version = cluster_config["default_version"]
-install_dir = cluster_config["install_dir"]
+try:
+    path_to_ssh = cluster_config["path_to_ssh"]
+    overwatch_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "overwatch.jar")
 
-# Define default number of cores for the selected PE (interactive mode)
-pe_cores = cluster_config["pe_cores"]
-node_config_str = cluster_config["node_config_str"]
+    # dictionary for the versions
+    default_version = cluster_config["default_version"]
+    install_dir = cluster_config["install_dir"]
 
-# dictionary in which we will pop up dynamically information about the load from the OverWatch
-default_queue = cluster_config["default_queue"]
-# dictionary to define parallel environments for each queue
-queue_dict = cluster_config["queue_dict"]
+    # Define default number of cores for the selected PE (interactive mode)
+    pe_cores = cluster_config["pe_cores"]
+    node_config_str = cluster_config["node_config_str"]
+
+    # dictionary in which we will pop up dynamically information about the load from the OverWatch
+    default_queue = cluster_config["default_queue"]
+    # dictionary to define parallel environments for each queue
+    queue_dict = cluster_config["queue_dict"]
+except KeyError as key_e:
+    print(("\nConfiguration file is wrong!\nCheck format of {} \nOnly double quotes are allowed." +
+          "\nFollowing key does not exist: {}").format(cluster_configuration_file, key_e.args[0]))
+    sys.exit()
 
 # create keys for usage statistics that would be updated later
 for queue_val in queue_dict.values():
@@ -125,8 +141,8 @@ class ClusterLoadUpdateThread(threading.Thread):
         while self._parent.running:
             if counter % 120 == 0:
                 xml_file = os.path.join(self._parent.user_dir, '.aedt', "data.xml")
-                command = ("java -jar /ott/apps/software/AEDT_Launcher/overwatch.jar " +
-                           "-exportClusterSummaryXmlPath {} >& {}").format(xml_file, self._parent.out_file)
+                command = ("java -jar {} -exportClusterSummaryXmlPath {} >& {}").format(overwatch_file, xml_file, 
+                                                                                        self._parent.out_file)
                 subprocess.call(command, shell=True)
                 with open(xml_file, "r") as file:
                     data = file.read()
@@ -242,7 +258,7 @@ class LauncherWindow(GUIFrame):
         self.username = getpass.getuser()
         self.hostname = socket.gethostname()
         self.display_node = os.getenv('DISPLAY')
-        self.qstat = "/ott/apps/uge/bin/lx-amd64/qstat"
+        self.qstat = "qstat"
 
         # get paths
         self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
@@ -620,7 +636,7 @@ class LauncherWindow(GUIFrame):
         check_ssh()
 
         # Scheduler data
-        scheduler = '/ott/apps/uge/bin/lx-amd64/qsub'
+        scheduler = 'qsub'
         queue_val = self.queue_dropmenu.Value
         penv = self.pe_dropmenu.Value
         num_cores = self.m_numcore.Value
@@ -820,7 +836,7 @@ class LauncherWindow(GUIFrame):
         os.kill(os.getpid(), signal.SIGINT)
 
     def submit_overwatch_thread(self):
-        command = "java -jar /ott/apps/software/AEDT_Launcher/overwatch.jar >& {}".format(self.out_file)
+        command = "java -jar {} >& {}".format(overwatch_file, self.out_file)
         subprocess.call(command, shell=True)
 
     @staticmethod
