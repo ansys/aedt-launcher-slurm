@@ -343,12 +343,12 @@ class LauncherWindow(GUIFrame):
         self.user_build_viewlist.AppendTextColumn('Build Path', width=640)
 
         # Setup Process ViewList
-        self.qstat_viewlist.AppendTextColumn('PID', width=50)
+        self.qstat_viewlist.AppendTextColumn('PID', width=70)
         self.qstat_viewlist.AppendTextColumn('State', width=50)
         self.qstat_viewlist.AppendTextColumn('Name', width=80)
-        self.qstat_viewlist.AppendTextColumn('User', width=50)
+        self.qstat_viewlist.AppendTextColumn('User', width=70)
         self.qstat_viewlist.AppendTextColumn('Queue', width=200)
-        self.qstat_viewlist.AppendTextColumn('cpu', width=30)
+        self.qstat_viewlist.AppendTextColumn('cpu', width=40)
         self.qstat_viewlist.AppendTextColumn('Started', width=50)
 
         # setup cluster load table
