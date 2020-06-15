@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ###########################################################################
-## Python code generated with wxFormBuilder (version Oct 26 2018)
+## Python code generated with wxFormBuilder (version 3.9.0 Feb 17 2020)
 ## http://www.wxformbuilder.org/
 ##
 ## PLEASE DO *NOT* EDIT THIS FILE!
@@ -110,7 +110,7 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer13 = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.m_numcore = wx.TextCtrl( self.m_panel2, wx.ID_ANY, u"8", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_numcore = wx.TextCtrl( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.m_numcore.SetMinSize( wx.Size( 50,-1 ) )
 
 		bSizer13.Add( self.m_numcore, 0, wx.ALL, 5 )
@@ -445,11 +445,11 @@ class GUIFrame ( wx.Frame ):
 		self.set_path_button.Bind( wx.EVT_BUTTON, self.set_project_path )
 		self.m_button1.Bind( wx.EVT_BUTTON, self.click_launch )
 		self.advanced_checkbox.Bind( wx.EVT_CHECKBOX, self.on_advanced_check )
-		self.overwatch_button.Bind( wx.EVT_BUTTON, self.open_overwatch )
+		self.overwatch_button.Bind( wx.EVT_BUTTON, self.submit_overwatch_thread )
 		self.qstat_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_ACTIVATED, self.leftclick_processtable, id = wx.ID_ANY )
 		self.m_checkBox_allmsg.Bind( wx.EVT_CHECKBOX, self.m_update_msg_list )
 		self.scheduler_msg_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_CONTEXT_MENU, self.rmb_on_scheduler_msg_list, id = wx.ID_ANY )
-		self.save_button.Bind( wx.EVT_BUTTON, self.save_default_settings )
+		self.save_button.Bind( wx.EVT_BUTTON, self.save_user_settings )
 		self.reset_button.Bind( wx.EVT_BUTTON, self.reset_settings )
 		self.close_button.Bind( wx.EVT_BUTTON, self.shutdown_app )
 		self.delete_build_button.Bind( wx.EVT_BUTTON, self.delete_row )
@@ -485,7 +485,7 @@ class GUIFrame ( wx.Frame ):
 	def on_advanced_check( self, event ):
 		event.Skip()
 
-	def open_overwatch( self, event ):
+	def submit_overwatch_thread( self, event ):
 		event.Skip()
 
 	def leftclick_processtable( self, event ):
@@ -497,7 +497,7 @@ class GUIFrame ( wx.Frame ):
 	def rmb_on_scheduler_msg_list( self, event ):
 		event.Skip()
 
-	def save_default_settings( self, event ):
+	def save_user_settings( self, event ):
 		event.Skip()
 
 	def reset_settings( self, event ):
