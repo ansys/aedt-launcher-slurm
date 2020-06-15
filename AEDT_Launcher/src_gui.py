@@ -315,7 +315,7 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer141.Add( bSizer16, 0, wx.EXPAND, 5 )
 
-		self.scheduler_msg_viewlist = wx.dataview.DataViewListCtrl( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.dataview.DV_HORIZ_RULES|wx.dataview.DV_NO_HEADER|wx.dataview.DV_ROW_LINES|wx.dataview.DV_VARIABLE_LINE_HEIGHT|wx.HSCROLL|wx.VSCROLL )
+		self.scheduler_msg_viewlist = wx.dataview.DataViewListCtrl( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.dataview.DV_HORIZ_RULES|wx.dataview.DV_ROW_LINES|wx.dataview.DV_VARIABLE_LINE_HEIGHT|wx.dataview.DV_VERT_RULES|wx.HSCROLL|wx.VSCROLL )
 		self.scheduler_msg_viewlist.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
 		self.scheduler_msg_viewlist.SetMinSize( wx.Size( 800,200 ) )
 

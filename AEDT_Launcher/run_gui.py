@@ -19,6 +19,7 @@ from collections import OrderedDict
 from datetime import datetime
 
 import wx
+from wx.lib.wordwrap import wordwrap
 import wx._core
 import wx.dataview
 
@@ -323,8 +324,8 @@ class LauncherWindow(GUIFrame):
 
         # Setup Process Log
         self.scheduler_msg_viewlist.AppendTextColumn('Timestamp', width=140)
-        self.scheduler_msg_viewlist.AppendTextColumn('PID', width=50)
-        self.scheduler_msg_viewlist.AppendTextColumn('Message', width=400)
+        self.scheduler_msg_viewlist.AppendTextColumn('PID', width=75)
+        self.scheduler_msg_viewlist.AppendTextColumn('Message')
         self.logfile = os.path.join(self.user_dir, '.aedt', 'user_log_'+viz_type+'.json')
 
         # read in previous log file
@@ -582,7 +583,8 @@ class LauncherWindow(GUIFrame):
         """
         scheduler = log_dict["scheduler"]
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        data = [timestamp, log_dict["pid"], log_dict["msg"], scheduler]
+        message = wordwrap(log_dict["msg"], 600, wx.ClientDC(self))
+        data = [timestamp, log_dict["pid"], message, scheduler]
 
         if scheduler or self.m_checkBox_allmsg.Value:
             tab_data = data[0:3]
