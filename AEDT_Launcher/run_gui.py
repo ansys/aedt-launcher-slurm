@@ -25,13 +25,13 @@ import wx.dataview
 from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v2.2"
+__version__ = "v2.3"
 
 # read cluster configuration from a file
 cluster_configuration_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "cluster_configuration.json")
 try:
-    with open(cluster_configuration_file) as file:
-        cluster_config = json.load(file, object_pairs_hook=OrderedDict)
+    with open(cluster_configuration_file) as config_file:
+        cluster_config = json.load(config_file, object_pairs_hook=OrderedDict)
 except FileNotFoundError:
     print("\nConfiguration file does not exist!\nCheck existence of " + cluster_configuration_file)
     sys.exit()
@@ -49,14 +49,14 @@ try:
     default_version = cluster_config["default_version"]
     install_dir = cluster_config["install_dir"]
 
-    # Define default number of cores for the selected PE (interactive mode)
+    # define default number of cores for the selected PE (interactive mode)
     pe_cores = cluster_config["pe_cores"]
-    node_config_str = cluster_config["node_config_str"]
+    node_config_dict = cluster_config["node_config_dict"]
 
     # dictionary in which we will pop up dynamically information about the load from the OverWatch
-    default_queue = cluster_config["default_queue"]
-    # dictionary to define parallel environments for each queue
+    # this dictionary also serves to define parallel environments for each queue
     queue_dict = cluster_config["queue_dict"]
+    default_queue = cluster_config["default_queue"]
 except KeyError as key_e:
     print(("\nConfiguration file is wrong!\nCheck format of {} \nOnly double quotes are allowed." +
           "\nFollowing key does not exist: {}").format(cluster_configuration_file, key_e.args[0]))
@@ -141,8 +141,8 @@ class ClusterLoadUpdateThread(threading.Thread):
         while self._parent.running:
             if counter % 120 == 0:
                 xml_file = os.path.join(self._parent.user_dir, '.aedt', "data.xml")
-                command = ("java -jar {} -exportClusterSummaryXmlPath {} >& {}").format(overwatch_file, xml_file, 
-                                                                                        self._parent.out_file)
+                command = "java -jar {} -exportClusterSummaryXmlPath {} >& {}".format(overwatch_file, xml_file,
+                                                                                      self._parent.out_file)
                 subprocess.call(command, shell=True)
                 with open(xml_file, "r") as file:
                     data = file.read()
@@ -250,6 +250,7 @@ class ClusterLoadUpdateThread(threading.Thread):
 
 class LauncherWindow(GUIFrame):
     def __init__(self, parent):
+        global default_queue
         # Initialize the main form
         GUIFrame.__init__(self, parent)
 
@@ -264,7 +265,6 @@ class LauncherWindow(GUIFrame):
         self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
         self.default_settings_json = os.path.join(self.user_dir, '.aedt', 'default.json')
         self.out_file = os.path.join(self.user_dir, '.aedt', "dump.txt")
-        self.singleton_log = os.path.join(self.user_dir, '.aedt', "singleton.txt")
         
         self.builds_data = {}
         self.default_settings = {}
@@ -281,15 +281,14 @@ class LauncherWindow(GUIFrame):
         if self.display_node[0] == ':':
             self.display_node = self.hostname + self.display_node
 
-        vnc_nodes = ['ottvnc']
-        dcv_nodes = ['eurgs']
+        # check if we are on VNC or DCV node
         viz_type = None
-        for node in vnc_nodes:
+        for node in cluster_config["vnc_nodes"]:
             if node in self.display_node:
                 viz_type = 'VNC'
                 break
-        if not viz_type:
-            for node in dcv_nodes:
+        else:
+            for node in cluster_config["dcv_nodes"]:
                 if node in self.display_node:
                     viz_type = 'DCV'
                     break
@@ -312,9 +311,9 @@ class LauncherWindow(GUIFrame):
         self.m_statusBar1.SetStatusText(msg, 1)
         self.m_statusBar1.SetStatusWidths([500, -1])
 
-        # create a list of default environmental variables
         init_combobox(install_dir.keys(), self.m_select_version1, default_version)
 
+        # create a list of default environmental variables
         self.interactive_env = ",".join(["DISPLAY=" + self.display_node, "LIBGL_ALWAYS_INDIRECT=True",
                                          "LIBGL_ALWAYS_SOFTWARE=True", "GALLIUM_DRIVER=swr", "ANS_NODEPCHECK=1"])
 
@@ -351,7 +350,7 @@ class LauncherWindow(GUIFrame):
         self.qstat_viewlist.AppendTextColumn('cpu', width=30)
         self.qstat_viewlist.AppendTextColumn('Started', width=50)
 
-        # setup cluster load
+        # setup cluster load table
         self.load_grid.SetColLabelValue(0, 'Available')
         self.load_grid.SetColSize(0, 80)
         self.load_grid.SetColLabelValue(1, 'Used')
@@ -372,7 +371,7 @@ class LauncherWindow(GUIFrame):
             self.load_grid.SetCellBackgroundColour(i, 1, "red")
             self.load_grid.SetCellBackgroundColour(i, 2, "light grey")
 
-        # Disable Batch-mode radio button
+        # Disable Pre-Post/Interactive radio button in case of DCV
         if viz_type == 'DCV':
             self.submit_mode_radiobox.EnableItem(1, False)
             self.submit_mode_radiobox.Select(0)
@@ -385,11 +384,11 @@ class LauncherWindow(GUIFrame):
         self.advanced_options_text.Hide()  # hide on start since hidden attribute is not working in wxBuilder
         self.read_custom_builds()
 
-        default_queue = list(queue_dict.keys())[0]
+        # populate UI with default or pre-saved settings
         parallel_env = None
         if os.path.isfile(self.default_settings_json):
             try:
-                self.set_default_settings()
+                self.set_user_settings()
                 default_queue = self.default_settings["queue"]
                 parallel_env = self.default_settings["parallel_env"]
             except KeyError:
@@ -406,7 +405,7 @@ class LauncherWindow(GUIFrame):
             self.advanced_options_text.Value = ",".join(advanced_list)
 
         init_combobox(queue_dict.keys(), self.queue_dropmenu, default_queue)
-        self.select_queue(parallel_env)  # if we read from a file then keep saved PE
+        self.select_queue(None, parallel_env)  # if we read from a file then keep saved PE
 
         self.on_reserve_check(None)
 
@@ -462,7 +461,10 @@ class LauncherWindow(GUIFrame):
         with open(self.user_build_json, "w") as file:
             json.dump(self.builds_data, file, indent=4)
 
-    def save_default_settings(self, _unused_event):
+    def save_user_settings(self, _unused_event):
+        """
+            Take all values from the UI and dump them to the .json file
+        """
         self.default_settings = {
             "mode": self.submit_mode_radiobox.Selection,
             "queue": self.queue_dropmenu.GetValue(),
@@ -480,7 +482,10 @@ class LauncherWindow(GUIFrame):
         with open(self.default_settings_json, "w") as file:
             json.dump(self.default_settings, file, indent=4)
 
-    def set_default_settings(self):
+    def set_user_settings(self):
+        """
+            Read settings file and populate UI with values
+        """
         with open(self.default_settings_json, "r") as file:
             self.default_settings = json.load(file)
 
@@ -499,12 +504,15 @@ class LauncherWindow(GUIFrame):
             self.reservation_id_text.Value = self.default_settings["reservation_id"]
 
             queue_value = self.queue_dropmenu.GetValue()
-            self.m_node_label.LabelText = node_config_str[queue_value]
+            self.m_node_label.LabelText = node_config_dict[queue_value]
         except wx._core.wxAssertionError:
             add_message("UI was updated or default settings file was corrupted. Please save default settings again",
                         "", "i")
 
     def reset_settings(self, _unused_event):
+        """
+            Fired on click to reset to factory. Will remove settings previously set by user
+        """
         if os.path.isfile(self.default_settings_json):
             os.remove(self.default_settings_json)
             add_message("To complete resetting please close and start again the application", "", "i")
@@ -519,7 +527,10 @@ class LauncherWindow(GUIFrame):
         self.m_numcore.Value = str(core_val)
 
     def select_mode(self, _unused_event):
-        """Callback invoked on change of the mode Pre/Post or Interactive"""
+        """
+            Callback invoked on change of the mode Pre/Post or Interactive.
+            Grey out options that are not applicable for Pre/Post
+        """
         sel = self.submit_mode_radiobox.Selection
         if sel == 0:
             enable = False
@@ -539,6 +550,9 @@ class LauncherWindow(GUIFrame):
         self.on_reserve_check(None)
 
     def update_job_status(self, _unused_event):
+        """
+            Event is called to update a viewlist with current running jobs from main thread (thread safity)
+        """
         self.qstat_viewlist.DeleteAllItems()
         for q_dict in qstat_list:
             self.qstat_viewlist.AppendItem([
@@ -561,6 +575,11 @@ class LauncherWindow(GUIFrame):
                 self.scheduler_msg_viewlist.PrependItem(tab_data)
 
     def add_log_entry(self, _unused_event=None):
+        """
+        Add new entry to the Scheduler Messages Window
+        :param _unused_event: not used
+        :return: None
+        """
         scheduler = log_dict["scheduler"]
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         data = [timestamp, log_dict["pid"], log_dict["msg"], scheduler]
@@ -573,6 +592,9 @@ class LauncherWindow(GUIFrame):
             json.dump(self.log_data, fa, indent=4)
 
     def rmb_on_scheduler_msg_list(self, _unused_event):
+        """
+            When click RMB on scheduler message list it will propose a context menu with choice to delete all messages
+        """
         position = wx.ContextMenuEvent(type=wx.wxEVT_NULL)
         self.PopupMenu(ClearMsgPopupMenu(self), position.GetPosition())
 
@@ -580,13 +602,12 @@ class LauncherWindow(GUIFrame):
         """On double click on process row will propose to abort running job"""
         row = self.qstat_viewlist.GetSelectedRow()
         pid = self.qstat_viewlist.GetTextValue(row, 0)
-        queue_val = self.qstat_viewlist.GetTextValue(row, 4)
 
         result = add_message("Abort Queue Process {}?\n".format(pid), "Confirm Abort", "?")
 
         if result == wx.ID_OK:
-            subprocess.call('qdel '+pid, shell=True)
-            msg = "Job on {1} cancelled from GUI".format(pid, queue_val)
+            subprocess.call('qdel {}'.format(pid), shell=True)
+            msg = "Job {} cancelled from GUI".format(pid)
             try:
                 self.log_data["PID List"].remove(pid)
             except ValueError:
@@ -597,39 +618,54 @@ class LauncherWindow(GUIFrame):
             log_dict["scheduler"] = False
             self.add_log_entry()
 
-    def select_queue(self, parallel_env):
+    def select_queue(self, _unused_event, parallel_env=None):
+        """
+        Called when user selects a value in Queue drop down menu (or during __init__ to fill the UI).
+        Sets PE and number of cores for each queue
+        :param parallel_env: PE that should be used, set when call from __init__
+        :param _unused_event: default event of UI component
+        :return: None
+        """
         queue_value = self.queue_dropmenu.GetValue()
 
         if not parallel_env:
             # choose  default PE and set default number of cores
             parallel_env = queue_dict[queue_value]["default_pe"]
-
-        set_cores = True if not isinstance(parallel_env, str) else None
+            set_cores = True
+        else:
+            set_cores = False
 
         init_combobox(queue_dict[queue_value]["parallel_env"], self.pe_dropmenu, parallel_env)
 
         if set_cores:
             self.select_pe()
 
-        tst = node_config_str[queue_value]
-        self.m_node_label.LabelText = tst
+        node_description = node_config_dict[queue_value]
+        self.m_node_label.LabelText = node_description
 
     def on_advanced_check(self, _unused_event):
-        """callback called when clicked Advanced options"""
+        """
+            callback called when clicked Advanced options.
+            Hides/Shows input field for environment variables
+        """
         if self.advanced_checkbox.Value:
             self.advanced_options_text.Show()
         else:
             self.advanced_options_text.Hide()
 
     def on_reserve_check(self, _unused_event):
-        """callback called when clicked Reservation"""
+        """
+            callback called when clicked Reservation
+            Will Hide/Show input field for reservation ID
+        """
         if self.reserved_checkbox.Value:
             self.reservation_id_text.Show()
         else:
             self.reservation_id_text.Hide()
 
-    def open_overwatch(self, _unused_event):
-        threading.Thread(target=self.submit_overwatch_thread, daemon=True).start()
+    def submit_overwatch_thread(self, _unused_event):
+        """ Opens OverWatch on button click """
+        threading.Thread(target=self.open_overwatch, daemon=True).start()
 
     def click_launch(self, _unused_event):
         """Depending on the choice of the user invokes AEDT on visual node or simply for pre/post"""
@@ -637,7 +673,7 @@ class LauncherWindow(GUIFrame):
 
         # Scheduler data
         scheduler = 'qsub'
-        queue_val = self.queue_dropmenu.Value
+        queue = self.queue_dropmenu.Value
         penv = self.pe_dropmenu.Value
         num_cores = self.m_numcore.Value
         ver_str = self.m_select_version1.Value
@@ -648,7 +684,6 @@ class LauncherWindow(GUIFrame):
             env += "," + self.env_var_text.Value
 
         # verify that no double commas, spaces, etc
-
         if env:
             env = re.sub(" ", "", env)
             env = re.sub(",+", ",", env)
@@ -664,7 +699,7 @@ class LauncherWindow(GUIFrame):
 
         op_mode = self.submit_mode_radiobox.GetSelection()
         if op_mode == 1:
-            command = [scheduler, "-q", queue_val, "-pe", penv, num_cores]
+            command = [scheduler, "-q", queue, "-pe", penv, num_cores]
 
             # if self.exclusive_usage_checkbox.Value:
             #     command += ["-l", "exclusive"]
@@ -684,7 +719,7 @@ class LauncherWindow(GUIFrame):
 
             res = subprocess.check_output(command, shell=False)
             pid = res.decode().strip()
-            msg = "Job submitted to {0} on {1}\nSubmit Command:{2}".format(queue_val, scheduler, " ".join(command))
+            msg = "Job submitted to {0} on {1}\nSubmit Command:{2}".format(queue, scheduler, " ".join(command))
             log_dict["pid"] = pid
             log_dict["msg"] = msg
             log_dict["scheduler"] = False
@@ -695,6 +730,7 @@ class LauncherWindow(GUIFrame):
             threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env,)).start()
 
     def usage_stat(self):
+        """ Collect usage statistics of the launcher """
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         stat_file = os.path.join(self.user_dir, '.aedt', "run.log")
         with open(stat_file, "a") as file:
@@ -761,6 +797,7 @@ class LauncherWindow(GUIFrame):
         subprocess.call([command], shell=True)
 
     def m_update_msg_list(self, _unused_event):
+        """ Fired when user clicks 'Show all messages' for Scheduler messages window"""
         self.update_msg_list()
 
     def delete_row(self, _unused_event):
@@ -835,7 +872,8 @@ class LauncherWindow(GUIFrame):
         signal.pthread_kill(threading.get_ident(), signal.SIGINT)
         os.kill(os.getpid(), signal.SIGINT)
 
-    def submit_overwatch_thread(self):
+    def open_overwatch(self):
+        """ Open Overwatch with java """
         command = "java -jar {} >& {}".format(overwatch_file, self.out_file)
         subprocess.call(command, shell=True)
 

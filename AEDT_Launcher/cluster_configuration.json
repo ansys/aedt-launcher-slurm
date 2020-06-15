@@ -1,4 +1,10 @@
 {   "path_to_ssh": "/nfs/ott/apps/admin/run_me_first.sh",
+    "vnc_nodes": [
+        "ottvnc"
+    ],
+    "dcv_nodes": [
+        "eurgs"
+    ],
     "default_version": "2020 R1",
     "install_dir": {
         "R18.2": "/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64",
@@ -10,7 +16,9 @@
         "2019 R3": "/ott/apps/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64",
         "2020 R1": "/ott/apps/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64",
         "2020 R2_Daily_Cert": "/ott/apps/daily_builds/linx64/v202_EBU_Certified_Daily/AnsysEM/AnsysEM20.2/Linux64",
-        "2020 R2_Weekly_Cert": "/ott/apps/daily_builds/linx64/v202_EBU_Certified_Weekly/AnsysEM/AnsysEM20.2/Linux64"
+        "2020 R2_Weekly_Cert": "/ott/apps/daily_builds/linx64/v202_EBU_Certified_Weekly/AnsysEM/AnsysEM20.2/Linux64",
+        "2021 R1_Daily_Cert": "/ott/apps/daily_builds/linx64/v211_EBU_Certified_Daily/AnsysEM/AnsysEM21.1/Linux64",
+        "2021 R1_Weekly_Cert": "/ott/apps/daily_builds/linx64/v211_EBU_Certified_Weekly/AnsysEM/AnsysEM21.1/Linux64"
     },
     "pe_cores": {
         "electronics-2": 2,
@@ -21,7 +29,7 @@
         "electronics-28": 28,
         "electronics-32": 32
     },
-    "node_config_str": {
+    "node_config_dict": {
         "euc09": "(20 cores, 128GB  / node)",
         "ottc01": "(28 cores, 128GB  / node)",
         "euc09lm": "(28 cores, 512GB  / node)",
