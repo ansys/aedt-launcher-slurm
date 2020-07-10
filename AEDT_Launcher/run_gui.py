@@ -219,8 +219,8 @@ class ClusterLoadUpdateThread(threading.Thread):
                     o_file = os.path.join(self._parent.user_dir, 'ansysedt.o' + pid)
                     if os.path.exists(o_file):
                         output_text = ''
-                        with open(o_file, 'r') as fi:
-                            for msgline in fi:
+                        with open(o_file, 'r') as file:
+                            for msgline in file:
                                 output_text += msgline
                             if output_text != '':
                                 log_dict["pid"] = pid
@@ -233,8 +233,8 @@ class ClusterLoadUpdateThread(threading.Thread):
                     e_file = os.path.join(self._parent.user_dir, 'ansysedt.e' + pid)
                     if os.path.exists(e_file):
                         error_text = ''
-                        with open(e_file, 'r') as fi:
-                            for msgline in fi:
+                        with open(e_file, 'r') as file:
+                            for msgline in file:
                                 error_text += msgline
                             if error_text != '':
                                 log_dict["pid"] = pid
@@ -329,14 +329,17 @@ class LauncherWindow(GUIFrame):
         self.logfile = os.path.join(self.user_dir, '.aedt', 'user_log_'+viz_type+'.json')
 
         # read in previous log file
+        self.log_data = {"Message List": [],
+                         "PID List": [],
+                         "GUI Data": []}
         if os.path.exists(self.logfile):
-            with open(self.logfile, 'r') as fi:
-                self.log_data = json.load(fi)
-                self.update_msg_list()
-        else:
-            self.log_data = {"Message List": [],
-                             "PID List": [],
-                             "GUI Data": []}
+            try:
+                with open(self.logfile, 'r') as file:
+                    self.log_data = json.load(file)
+                    self.update_msg_list()
+            except json.decoder.JSONDecodeError:
+                print("Error reading log file")
+                os.remove(self.logfile)
 
         # initialize the table with User Defined Builds
         self.user_build_viewlist.AppendTextColumn('Build Name', width=150)
@@ -435,8 +438,13 @@ class LauncherWindow(GUIFrame):
     def read_custom_builds(self):
         """Reads all specified in JSON file custom builds"""
         if os.path.isfile(self.user_build_json):
-            with open(self.user_build_json) as file:
-                self.builds_data = json.load(file)
+            try:
+                with open(self.user_build_json) as file:
+                    self.builds_data = json.load(file)
+            except json.decoder.JSONDecodeError:
+                print("JSON file with user builds is corrupted")
+                os.remove(self.user_build_json)
+                return
 
             for key in self.builds_data.keys():
                 self.user_build_viewlist.AppendItem([key, self.builds_data[key]])
