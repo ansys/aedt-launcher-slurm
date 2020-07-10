@@ -15,8 +15,7 @@
         "2019 R2": "/ott/apps/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64",
         "2019 R3": "/ott/apps/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64",
         "2020 R1": "/ott/apps/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64",
-        "2020 R2_Daily_Cert": "/ott/apps/daily_builds/linx64/v202_EBU_Certified_Daily/AnsysEM/AnsysEM20.2/Linux64",
-        "2020 R2_Weekly_Cert": "/ott/apps/daily_builds/linx64/v202_EBU_Certified_Weekly/AnsysEM/AnsysEM20.2/Linux64",
+        "2020 R2": "/ott/apps/software/ANSYS_EM_2020R2/AnsysEM20.2/Linux64",
         "2021 R1_Daily_Cert": "/ott/apps/daily_builds/linx64/v211_EBU_Certified_Daily/AnsysEM/AnsysEM21.1/Linux64",
         "2021 R1_Weekly_Cert": "/ott/apps/daily_builds/linx64/v211_EBU_Certified_Weekly/AnsysEM/AnsysEM21.1/Linux64"
     },
