@@ -26,7 +26,7 @@ import wx.dataview
 from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v2.3"
+__version__ = "v2.4"
 
 # read cluster configuration from a file
 cluster_configuration_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "cluster_configuration.json")
@@ -266,6 +266,8 @@ class LauncherWindow(GUIFrame):
         self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
         self.default_settings_json = os.path.join(self.user_dir, '.aedt', 'default.json')
         self.out_file = os.path.join(self.user_dir, '.aedt', "dump.txt")
+
+        self.sge_request_file = os.path.join(os.environ["HOME"], ".sge_request")
         
         self.builds_data = {}
         self.default_settings = {}
@@ -277,7 +279,7 @@ class LauncherWindow(GUIFrame):
                 self.products[key] = next(file).rstrip()  # get first line
 
         # set default project path
-        self.path_textbox.Value = os.path.join(os.environ["HOME"], "EDT_projects")
+        self.path_textbox.Value = os.path.join("/lus01", self.username, "EDT_projects")
 
         if self.display_node[0] == ':':
             self.display_node = self.hostname + self.display_node
@@ -383,7 +385,7 @@ class LauncherWindow(GUIFrame):
             self.submit_mode_radiobox.EnableItem(1, True)
             self.submit_mode_radiobox.Select(1)
 
-        self.select_mode(None)
+        self.select_mode()
         self.m_notebook2.ChangeSelection(0)
         self.advanced_options_text.Hide()  # hide on start since hidden attribute is not working in wxBuilder
         self.read_custom_builds()
@@ -411,7 +413,7 @@ class LauncherWindow(GUIFrame):
         init_combobox(queue_dict.keys(), self.queue_dropmenu, default_queue)
         self.select_queue(None, parallel_env)  # if we read from a file then keep saved PE
 
-        self.on_reserve_check(None)
+        self.on_reserve_check()
 
         # run in parallel to UI regular update of chart and process list
         self.running = True
@@ -453,8 +455,7 @@ class LauncherWindow(GUIFrame):
                     self.products[key] = next(file).rstrip()  # get first line
 
             # update values in version selector on 1st page
-            init_combobox(list(install_dir.keys()), self.m_select_version1,
-                          default_version)
+            init_combobox(install_dir.keys(), self.m_select_version1, default_version)
 
     def write_custom_build(self):
         """Function to create a user JSON file with custom builds and to update selector"""
@@ -465,7 +466,7 @@ class LauncherWindow(GUIFrame):
             self.builds_data[self.user_build_viewlist.GetTextValue(i, 0)] = self.user_build_viewlist.GetTextValue(i, 1)
 
         # update values in version selector on 1st page
-        init_combobox(list(install_dir.keys()), self.m_select_version1, default_version)
+        init_combobox(install_dir.keys(), self.m_select_version1, default_version)
 
         with open(self.user_build_json, "w") as file:
             json.dump(self.builds_data, file, indent=4)
@@ -535,7 +536,7 @@ class LauncherWindow(GUIFrame):
         core_val = pe_cores[pe_val]
         self.m_numcore.Value = str(core_val)
 
-    def select_mode(self, _unused_event):
+    def select_mode(self, _unused_event=None):
         """
             Callback invoked on change of the mode Pre/Post or Interactive.
             Grey out options that are not applicable for Pre/Post
@@ -543,20 +544,16 @@ class LauncherWindow(GUIFrame):
         sel = self.submit_mode_radiobox.Selection
         if sel == 0:
             enable = False
-            self.reserved_checkbox.Value = enable
             self.advanced_options_text.Value = self.local_env
         else:
             enable = True
             self.advanced_options_text.Value = self.interactive_env
 
-        self.reserved_checkbox.Enabled = enable
         self.queue_dropmenu.Enabled = enable
         self.m_numcore.Enabled = enable
         # self.exclusive_usage_checkbox.Enabled = enable
         self.m_node_label.Enabled = enable
         self.pe_dropmenu.Enable(enable)
-
-        self.on_reserve_check(None)
 
     def update_job_status(self, _unused_event):
         """
@@ -663,7 +660,7 @@ class LauncherWindow(GUIFrame):
         else:
             self.advanced_options_text.Hide()
 
-    def on_reserve_check(self, _unused_event):
+    def on_reserve_check(self, _unused_event=None):
         """
             callback called when clicked Reservation
             Will Hide/Show input field for reservation ID
@@ -707,6 +704,7 @@ class LauncherWindow(GUIFrame):
 
         self.usage_stat()
 
+        reservation, reservation_id = self.check_reservation()
         op_mode = self.submit_mode_radiobox.GetSelection()
         if op_mode == 1:
             command = [scheduler, "-q", queue, "-pe", penv, num_cores]
@@ -718,18 +716,17 @@ class LauncherWindow(GUIFrame):
             command += ["-terse", "-v", env, "-b", "yes"]
 
             # insert job ID if provided. Should be always as first argument of qsub
-            if self.reserved_checkbox.Value:
-                ar = self.reservation_id_text.Value
-                if ar in [None, ""]:
-                    return add_message("Reservation ID is not provided. Please set ID and click launch again",
-                                       "Reservation ID", "!")
-                command[1:1] = ["-ar", ar]
+            if reservation:
+                if reservation_id:
+                    command[1:1] = ["-ar", reservation_id]
+                else:
+                    return
 
             command += [os.path.join(aedt_path, "ansysedt"), "-machinelist", "num="+num_cores]
 
             res = subprocess.check_output(command, shell=False)
             pid = res.decode().strip()
-            msg = "Job submitted to {0} on {1}\nSubmit Command:{2}".format(queue, scheduler, " ".join(command))
+            msg = f"Job submitted to {queue} on {scheduler}\nSubmit Command:{' '.join(command)}"
             log_dict["pid"] = pid
             log_dict["msg"] = msg
             log_dict["scheduler"] = False
@@ -737,7 +734,42 @@ class LauncherWindow(GUIFrame):
             self.log_data["PID List"].append(pid)
 
         else:
+            if reservation:
+                if reservation_id:
+                    with open(self.sge_request_file, "w") as file:
+                        file.write(f"-ar {reservation_id}")
+                else:
+                    return
+
             threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env,)).start()
+
+    def check_reservation(self):
+        """
+        Validate if user wants to run with predefined reservation. Create a reservation argument for interactive mode
+        or create .sge_request file with argument for non graphical
+        :return: (reservation (bool), Reservation ID (str)) True if reservation was checked AND reservation ID if
+        the value is correct
+        """
+        reservation = self.reserved_checkbox.Value
+        ar = ""
+        if reservation:
+            ar = self.reservation_id_text.Value
+            if ar in [None, ""]:
+                add_message("Reservation ID is not provided. Please set ID and click launch again",
+                            "Reservation ID", "!")
+            else:
+                try:
+                    int(ar)
+                except ValueError:
+                    ar = ""
+                    add_message("Reservation ID should be integer. Please set ID and click launch again",
+                                "Reservation ID", "!")
+
+        else:
+            if os.path.isfile(self.sge_request_file):
+                os.remove(self.sge_request_file)
+
+        return reservation, ar
 
     def usage_stat(self):
         """ Collect usage statistics of the launcher """
@@ -765,46 +797,36 @@ class LauncherWindow(GUIFrame):
         if not os.path.isdir(self.path_textbox.Value):
             os.mkdir(self.path_textbox.Value)
 
+        commands = []  # list to aggregate all commands to execute
         registry_file = os.path.join(aedt_path, "UpdateRegistry")
+
+        # set base for each command: path to registry, product and level
+        command_base = [registry_file, "-Set", "-ProductName", self.products[self.m_select_version1.Value],
+                        "-RegistryLevel", "user"]
+
         # disable question about participation in product improvement
-        command = ('{} -set -ProductName {} -RegistryKey ' +
-                   '"Desktop/Settings/ProjectOptions/ProductImprovementOptStatus"' +
-                   ' -RegistryValue 0 -RegistryLevel user').format(registry_file,
-                                                                   self.products[self.m_select_version1.Value])
-        subprocess.call([command], shell=True)
+        commands.append(["-RegistryKey", "Desktop/Settings/ProjectOptions/ProductImprovementOptStatus",
+                         "-RegistryValue", "0"])
 
         # set installation path
-        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/InstallationDirectory"' +
-                   ' -RegistryValue {2} -RegistryLevel user').format(registry_file,
-                                                                     self.products[self.m_select_version1.Value],
-                                                                     aedt_path)
-        subprocess.call([command], shell=True)
+        commands.append(["-RegistryKey", 'Desktop/InstallationDirectory', "-RegistryValue", aedt_path])
 
         # set project folder
-        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/ProjectDirectory"' +
-                   ' -RegistryValue {2} -RegistryLevel user').format(registry_file,
-                                                                     self.products[self.m_select_version1.Value],
-                                                                     self.path_textbox.Value)
-        subprocess.call([command], shell=True)
+        commands.append(["-RegistryKey", 'Desktop/ProjectDirectory', "-RegistryValue", self.path_textbox.Value])
 
         # disable welcome message
-        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/Settings/ProjectOptions/ShowWelcomeMsg"' +
-                   ' -RegistryValue 0 -RegistryLevel user').format(registry_file,
-                                                                   self.products[self.m_select_version1.Value])
-        subprocess.call([command], shell=True)
+        commands.append(["-RegistryKey", 'Desktop/Settings/ProjectOptions/ShowWelcomeMsg', "-RegistryValue", "0"])
 
         # set personal lib
-        command = ('{0} -set -ProductName {1} -RegistryKey "Desktop/PersonalLib" -RegistryValue ' +
-                   '"$HOME/Ansoft/Personallib" -RegistryLevel user').format(registry_file,
-                                                                            self.products[self.m_select_version1.Value])
-        subprocess.call([command], shell=True)
+        personal_lib = os.path.join(os.environ["HOME"], "Ansoft", "Personallib")
+        commands.append(["-RegistryKey", 'Desktop/PersonalLib', "-RegistryValue", personal_lib])
 
         # set SGE scheduler
         path_sge_settings = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sge_settings.areg")
-        command = '{} -set -ProductName {}  -FromFile "{}"'.format(registry_file,
-                                                                   self.products[self.m_select_version1.Value],
-                                                                   path_sge_settings)
-        subprocess.call([command], shell=True)
+        commands.append(["-FromFile", path_sge_settings])
+
+        for command in commands:
+            subprocess.call(command_base + command)
 
     def m_update_msg_list(self, _unused_event):
         """ Fired when user clicks 'Show all messages' for Scheduler messages window"""
@@ -884,28 +906,25 @@ class LauncherWindow(GUIFrame):
 
     def open_overwatch(self):
         """ Open Overwatch with java """
-        command = "java -jar {} >& {}".format(overwatch_file, self.out_file)
-        subprocess.call(command, shell=True)
+        command = ["java", "-jar", overwatch_file, ">&", self.out_file]
+        subprocess.call(command)
 
     @staticmethod
     def _submit_batch_thread(aedt_path, env):
         """
-        Configure SGE scheduler.
-        Viz-node for pre-post or submit. Command example:
-        /bin/sh -c "export ANS_NODEPCHECK=1; export SKIP_MESHCHECK=0;
-        /ott/apps/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64/ansysedt &"
+            Start EDT in pre/post mode
+            :param aedt_path: path to the EDT root
+            :param env: string with list of environment variables
+            :return: None
         """
 
-        # invoke electronics desktop
-        shell = "/bin/sh -c "
-        env_vars = ""
+        env_vars = os.environ.copy()
         if env:
-            for variable in env.split(","):
-                env_vars += 'export {}; '.format(variable)
+            for var_value in env.split(","):
+                variable, value = var_value.split("=")
+                env_vars[variable] = value
 
-        # command = command.replace(';"', '; export"')  # to print all exported variables
-        command = '{} "{}{} &"'.format(shell, env_vars, os.path.join(aedt_path, "ansysedt"))
-        subprocess.call([command], shell=True)
+        subprocess.Popen([os.path.join(aedt_path, "ansysedt")], shell=True, env=env_vars)
 
 
 def check_ssh():
@@ -948,19 +967,19 @@ def init_combobox(entry_list, combobox, default_value=''):
     """
     Fills a wx.Combobox element with the entries in a list
     Input parameters
-    :param entry_list: List of text entries to appear in the combobox element
+    :param entry_list: Iterative object of text entries to appear in the combobox element
     :param combobox: object pointing to the combobox element
-    :param default_value: (optional9 default value (must be present in the entry list, otherwise will be ignored)
+    :param default_value: (optional) default value (must be present in the entry list, otherwise will be ignored)
 
     Outputs
     :return: None
     """
     combobox.Clear()
     index = 0
-    for i, v in enumerate(list(entry_list)):
-        if v == default_value:
+    for i, value in enumerate(list(entry_list)):
+        if value == default_value:
             index = i
-        combobox.Append(v)
+        combobox.Append(value)
     combobox.SetSelection(index)
 
 
