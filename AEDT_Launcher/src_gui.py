@@ -37,12 +37,12 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer1 = wx.BoxSizer( wx.VERTICAL )
 
-		self.m_staticText7 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"AEDT Launcher for Ottsimportal2", wx.DefaultPosition, wx.DefaultSize, 0 )
-		self.m_staticText7.Wrap( -1 )
+		self.title_caption = wx.StaticText( self.m_panel2, wx.ID_ANY, u"AEDT Launcher", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.title_caption.Wrap( -1 )
 
-		self.m_staticText7.SetFont( wx.Font( 14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
+		self.title_caption.SetFont( wx.Font( 14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
 
-		bSizer1.Add( self.m_staticText7, 0, wx.ALL, 5 )
+		bSizer1.Add( self.title_caption, 0, wx.ALL, 5 )
 
 		self.m_staticline1 = wx.StaticLine( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL )
 		bSizer1.Add( self.m_staticline1, 0, wx.EXPAND |wx.ALL, 5 )
@@ -179,7 +179,7 @@ class GUIFrame ( wx.Frame ):
 
 		VersionSizer1 = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.m_version_text1 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"AEDT Version", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_version_text1 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Version", wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.m_version_text1.Wrap( -1 )
 
 		self.m_version_text1.SetMinSize( wx.Size( 95,-1 ) )
@@ -193,7 +193,7 @@ class GUIFrame ( wx.Frame ):
 
 		VersionSizer1.Add( self.m_select_version1, 0, wx.ALL, 5 )
 
-		self.m_button1 = wx.Button( self.m_panel2, wx.ID_ANY, u"Launch AEDT", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_button1 = wx.Button( self.m_panel2, wx.ID_ANY, u"Launch", wx.DefaultPosition, wx.DefaultSize, 0 )
 		VersionSizer1.Add( self.m_button1, 0, wx.ALL, 5 )
 
 
