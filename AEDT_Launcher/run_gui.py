@@ -58,6 +58,8 @@ try:
     # this dictionary also serves to define parallel environments for each queue
     queue_dict = cluster_config["queue_dict"]
     default_queue = cluster_config["default_queue"]
+
+    project_path = cluster_config["user_project_path_root"]
 except KeyError as key_e:
     print(("\nConfiguration file is wrong!\nCheck format of {} \nOnly double quotes are allowed." +
           "\nFollowing key does not exist: {}").format(cluster_configuration_file, key_e.args[0]))
@@ -279,7 +281,7 @@ class LauncherWindow(GUIFrame):
                 self.products[key] = next(file).rstrip()  # get first line
 
         # set default project path
-        self.path_textbox.Value = os.path.join("/lus01", self.username, "EDT_projects")
+        self.path_textbox.Value = os.path.join(project_path, self.username, "edt_projects")
 
         if self.display_node[0] == ':':
             self.display_node = self.hostname + self.display_node
