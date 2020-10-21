@@ -23,10 +23,15 @@ from wx.lib.wordwrap import wordwrap
 import wx._core
 import wx.dataview
 
+from influxdb import InfluxDBClient
+
 from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
 __version__ = "v2.5"
+
+STATISTICS_SERVER = "OTTBLD02"
+STATISTICS_PORT = 8086
 
 # read cluster configuration from a file
 cluster_configuration_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "cluster_configuration.json")
@@ -685,8 +690,8 @@ class LauncherWindow(GUIFrame):
         queue = self.queue_dropmenu.Value
         penv = self.pe_dropmenu.Value
         num_cores = self.m_numcore.Value
-        ver_str = self.m_select_version1.Value
-        aedt_path = install_dir[ver_str]
+        aedt_version = self.m_select_version1.Value
+        aedt_path = install_dir[aedt_version]
 
         env = self.advanced_options_text.Value
         if self.env_var_text.Value:
@@ -704,10 +709,16 @@ class LauncherWindow(GUIFrame):
             add_message("Verify project directory. Probably user name was changed", "Wrong project path", "!")
             return
 
-        self.usage_stat()
-
         reservation, reservation_id = self.check_reservation()
         op_mode = self.submit_mode_radiobox.GetSelection()
+
+        job_type = "interactive" if op_mode == 1 else "pre-post"
+        try:
+            self.send_statistics(aedt_version, job_type)
+        except:
+            # not worry a lot
+            print("Error sending statistics")
+
         if op_mode == 1:
             command = [scheduler, "-q", queue, "-pe", penv, num_cores]
 
@@ -779,6 +790,39 @@ class LauncherWindow(GUIFrame):
         stat_file = os.path.join(self.user_dir, '.aedt', "run.log")
         with open(stat_file, "a") as file:
             file.write(self.m_select_version1.Value + "\t" + timestamp + "\n")
+
+    def send_statistics(self, version, job_type):
+        """
+        Send usage statistics to the database.
+        Args:
+            version: version of EDT used
+            job_type: interactive or NG
+
+        Returns: None
+        """
+
+        client = InfluxDBClient(host=STATISTICS_SERVER, port=STATISTICS_PORT)
+        db_name = "aedt_hpc_launcher"
+        client.switch_database(db_name)
+
+        time_now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        json_body = [
+            {
+                "measurement": db_name,
+                "tags": {
+                    "username": self.username,
+                    "version": version,
+                    "job_type": job_type,
+                    "cluster": self.hostname[:3]
+                },
+                "time": time_now,
+                "fields": {
+                    "count": 1
+                }
+            }
+        ]
+
+        client.write_points(json_body)
 
     def set_registry(self, aedt_path):
         """
