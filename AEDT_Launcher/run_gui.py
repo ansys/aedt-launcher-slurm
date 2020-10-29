@@ -107,17 +107,14 @@ class ClearMsgPopupMenu(wx.Menu):
 
 # create a new event to bind it and call it from subthread. UI should be changed ONLY in MAIN THREAD
 # signal - cluster load
-ID_1 = wx.NewId()
 my_SIGNAL_EVT = wx.NewEventType()
 SIGNAL_EVT = wx.PyEventBinder(my_SIGNAL_EVT, 1)
 
 # signal - qstat
-ID_2 = wx.NewId()
 NEW_SIGNAL_EVT_QSTAT = wx.NewEventType()
 SIGNAL_EVT_QSTAT = wx.PyEventBinder(NEW_SIGNAL_EVT_QSTAT, 1)
 
 # signal - log message
-ID_3 = wx.NewId()
 NEW_SIGNAL_EVT_LOG = wx.NewEventType()
 SIGNAL_EVT_LOG = wx.PyEventBinder(NEW_SIGNAL_EVT_LOG, 1)
 
