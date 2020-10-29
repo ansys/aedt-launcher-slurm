@@ -146,8 +146,7 @@ class ClusterLoadUpdateThread(threading.Thread):
         while self._parent.running:
             if counter % 120 == 0:
                 xml_file = os.path.join(self._parent.user_dir, '.aedt', "data.xml")
-                command = "java -jar {} -exportClusterSummaryXmlPath {} >& {}".format(overwatch_file, xml_file,
-                                                                                      self._parent.out_file)
+                command = "java -jar {} -exportClusterSummaryXmlPath {} >& /dev/null".format(overwatch_file, xml_file)
                 subprocess.call(command, shell=True)
                 with open(xml_file, "r") as file:
                     data = file.read()
@@ -269,7 +268,6 @@ class LauncherWindow(GUIFrame):
         # get paths
         self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
         self.default_settings_json = os.path.join(self.user_dir, '.aedt', 'default.json')
-        self.out_file = os.path.join(self.user_dir, '.aedt', "dump.txt")
 
         self.sge_request_file = os.path.join(os.environ["HOME"], ".sge_request")
         
@@ -949,7 +947,7 @@ class LauncherWindow(GUIFrame):
 
     def open_overwatch(self):
         """ Open Overwatch with java """
-        command = ["java", "-jar", overwatch_file, ">&", self.out_file]
+        command = ["java", "-jar", overwatch_file, ">& /dev/null"]
         subprocess.call(command)
 
     @staticmethod
