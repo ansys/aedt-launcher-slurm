@@ -319,8 +319,7 @@ class LauncherWindow(GUIFrame):
         init_combobox(install_dir.keys(), self.m_select_version1, default_version)
 
         # create a list of default environmental variables
-        self.interactive_env = ",".join(["DISPLAY=" + self.display_node, "LIBGL_ALWAYS_INDIRECT=True",
-                                         "LIBGL_ALWAYS_SOFTWARE=True", "GALLIUM_DRIVER=swr", "ANS_NODEPCHECK=1"])
+        self.interactive_env = ",".join(["DISPLAY=" + self.display_node, "ANS_NODEPCHECK=1"])
 
         self.advanced_options_text.Value = self.interactive_env
 
