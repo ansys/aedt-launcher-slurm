@@ -281,7 +281,7 @@ class LauncherWindow(GUIFrame):
                 self.products[key] = next(file).rstrip()  # get first line
 
         # set default project path
-        self.path_textbox.Value = os.path.join(project_path, self.username, "edt_projects")
+        self.path_textbox.Value = os.path.join(project_path, self.username)
 
         if self.display_node[0] == ':':
             self.display_node = self.hostname + self.display_node
