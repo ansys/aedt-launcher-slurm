@@ -163,7 +163,7 @@ class ClusterLoadUpdateThread(threading.Thread):
                             total = host.find("Slots/Total").text
                             total_cores += int(total)
 
-                            if host.find("State").text in ["E", "d", "D", "s", "S", "u"]:
+                            if host.find("State").text in ["E", "d", "D", "s", "S", "u", "au"]:
                                 failed_cores += int(total)
                             elif int(host.find("Slots/Reserved").text) > 0:
                                 reserved_cores += int(total)
