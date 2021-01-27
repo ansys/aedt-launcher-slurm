@@ -6,7 +6,7 @@
     "dcv_nodes": [
         "eurgs"
     ],
-    "default_version": "2020 R1",
+    "default_version": "2021 R1",
     "install_dir": {
         "R18.2": "/ott/apps/software/ANSYS_EM_182/AnsysEM18.2/Linux64",
         "R19.0": "/ott/apps/software/ANSYS_EM_190/AnsysEM19.0/Linux64",
@@ -17,8 +17,9 @@
         "2019 R3": "/ott/apps/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64",
         "2020 R1": "/ott/apps/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64",
         "2020 R2": "/ott/apps/software/ANSYS_EM_2020R2/AnsysEM20.2/Linux64",
-        "2021 R1_Daily_Cert": "/ott/apps/daily_builds/linx64/v211_EBU_Certified_Daily/AnsysEM/AnsysEM21.1/Linux64",
-        "2021 R1_Weekly_Cert": "/ott/apps/daily_builds/linx64/v211_EBU_Certified_Weekly/AnsysEM/AnsysEM21.1/Linux64"
+	    "2021 R1": "/ott/apps/software/ANSYS_EM_2021R1/AnsysEM21.1/Linux64",
+        "2021 R2_Daily_Cert": "/ott/apps/daily_builds/linx64/v212_EBU_Certified_Daily/AnsysEM/AnsysEM21.2/Linux64",
+        "2021 R2_Weekly_Cert": "/ott/apps/daily_builds/linx64/v212_EBU_Certified_Weekly/AnsysEM/AnsysEM21.2/Linux64"
     },
     "pe_cores": {
         "electronics-2": 2,
@@ -43,7 +44,6 @@
                 "electronics-2",
                 "electronics-4",
                 "electronics-8",
-                "electronics-16",
                 "electronics-20"
             ],
             "default_pe": "electronics-4"
@@ -53,7 +53,6 @@
                 "electronics-2",
                 "electronics-4",
                 "electronics-8",
-                "electronics-16",
                 "electronics-28"
             ],
             "default_pe": "electronics-4"
@@ -63,7 +62,6 @@
                 "electronics-2",
                 "electronics-4",
                 "electronics-8",
-                "electronics-16",
                 "electronics-28"
             ],
             "default_pe": "electronics-4"
@@ -74,7 +72,6 @@
                 "electronics-4",
                 "electronics-8",
                 "electronics-16",
-                "electronics-28",
                 "electronics-32"
             ],
             "default_pe": "electronics-4"
@@ -85,7 +82,6 @@
                 "electronics-4",
                 "electronics-8",
                 "electronics-16",
-                "electronics-28",
                 "electronics-32"
             ],
             "default_pe": "electronics-4"
