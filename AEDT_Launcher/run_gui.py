@@ -201,7 +201,7 @@ class ClusterLoadUpdateThread(threading.Thread):
                     started = line[49:68].strip()
                     queue_data = line[69:99].strip()
                     # jclass = line[100:128].strip()
-                    proc = line[129:148].strip()
+                    num_cpu = line[129:148].strip()
 
                     if name not in exclude:
                         qstat_list.append({
@@ -210,7 +210,32 @@ class ClusterLoadUpdateThread(threading.Thread):
                             "name": name,
                             "user": user,
                             "queue_data": queue_data,
-                            "proc": proc,
+                            "proc": num_cpu,
+                            "started": started
+                        })
+
+                slurm_stat_output = subprocess.check_output(self._parent.squeue, shell=True)
+                slurm_stat_output = slurm_stat_output.decode("ascii", errors="ignore")
+
+                exclude = ['VNC Deskto', 'DCV Deskto', ""]
+                for i, line in enumerate(slurm_stat_output.split("\n")[1:]):
+                    pid = line[0:18].strip()
+                    partition = line[19:28].strip()
+                    job_name = line[29:38].strip()
+                    user = line[38:47].strip()
+                    state = line[48:49].strip()
+                    num_cpu = line[50:54].strip()
+                    started = line[54:75].strip()
+                    node_list = line[76:].strip()
+
+                    if job_name not in exclude:
+                        qstat_list.append({
+                            "pid": pid,
+                            "state": state,
+                            "name": job_name,
+                            "user": user,
+                            "queue_data": node_list,
+                            "proc": num_cpu,
                             "started": started
                         })
 
@@ -264,6 +289,7 @@ class LauncherWindow(GUIFrame):
         self.hostname = socket.gethostname()
         self.display_node = os.getenv('DISPLAY')
         self.qstat = "qstat"
+        self.squeue = 'squeue --me --format "%.18i %.9P %.8j %.8u %.2t %.4C %.20V %R"'
 
         # get paths
         self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
@@ -610,11 +636,16 @@ class LauncherWindow(GUIFrame):
         """On double click on process row will propose to abort running job"""
         row = self.qstat_viewlist.GetSelectedRow()
         pid = self.qstat_viewlist.GetTextValue(row, 0)
+        queue = self.qstat_viewlist.GetTextValue(row, 4)
 
         result = add_message("Abort Queue Process {}?\n".format(pid), "Confirm Abort", "?")
 
         if result == wx.ID_OK:
-            subprocess.call('qdel {}'.format(pid), shell=True)
+            if "euc09" in queue and "euc09lm" not in queue:
+                subprocess.call('scancel {}'.format(pid), shell=True)
+            else:
+                subprocess.call('qdel {}'.format(pid), shell=True)
+
             msg = "Job {} cancelled from GUI".format(pid)
             try:
                 self.log_data["PID List"].remove(pid)
@@ -714,24 +745,31 @@ class LauncherWindow(GUIFrame):
             print("Error sending statistics")
 
         if op_mode == 1:
-            command = [scheduler, "-q", queue, "-pe", penv, num_cores]
+            if queue == "euc09":
+                scheduler = "sbatch"
+                command = [scheduler, "--job-name", "aedt", "--partition", queue, "--ntasks", num_cores,
+                           "--export", env, "--wrap"]
+                aedt_str = " ".join([os.path.join(aedt_path, "ansysedt"), "-machinelist", "num=" + num_cores])
+                command.append(f'"{aedt_str}"')
+                command = " ".join(command)  # convert to string to avoid escaping characters
+                res = subprocess.check_output(command, shell=True)
+            else:
+                command = [scheduler, "-q", queue, "-pe", penv, num_cores]
 
-            # if self.exclusive_usage_checkbox.Value:
-            #     command += ["-l", "exclusive"]
+                # Interactive mode
+                command += ["-terse", "-v", env, "-b", "yes"]
 
-            # Interactive mode
-            command += ["-terse", "-v", env, "-b", "yes"]
+                # insert job ID if provided. Should be always as first argument of qsub
+                if reservation:
+                    if reservation_id:
+                        command[1:1] = ["-ar", reservation_id]
+                    else:
+                        return
 
-            # insert job ID if provided. Should be always as first argument of qsub
-            if reservation:
-                if reservation_id:
-                    command[1:1] = ["-ar", reservation_id]
-                else:
-                    return
+                command += [os.path.join(aedt_path, "ansysedt"), "-machinelist", "num="+num_cores]
 
-            command += [os.path.join(aedt_path, "ansysedt"), "-machinelist", "num="+num_cores]
+                res = subprocess.check_output(command, shell=False)
 
-            res = subprocess.check_output(command, shell=False)
             pid = res.decode().strip()
             msg = f"Job submitted to {queue} on {scheduler}\nSubmit Command:{' '.join(command)}"
             log_dict["pid"] = pid
