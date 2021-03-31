@@ -145,112 +145,113 @@ class ClusterLoadUpdateThread(threading.Thread):
         counter = 120
         while self._parent.running:
             if counter % 120 == 0:
-                xml_file = os.path.join(self._parent.user_dir, '.aedt', "data.xml")
-                command = "java -jar {} -exportClusterSummaryXmlPath {} >& /dev/null".format(overwatch_file, xml_file)
-                subprocess.call(command, shell=True)
-                with open(xml_file, "r") as file:
-                    data = file.read()
-                q_statistics = ET.fromstring(data)
-
-                for queue_elem in q_statistics.findall("Queues/Queue"):
-                    queue_name = queue_elem.get("name")
-                    if queue_name in queue_dict:
-                        total_cores = 0
-                        used_cores = 0
-                        reserved_cores = 0
-                        failed_cores = 0
-                        for host in queue_elem.findall("Hosts/Host"):
-                            total = host.find("Slots/Total").text
-                            total_cores += int(total)
-
-                            if host.find("State").text in ["E", "d", "D", "s", "S", "u", "au"]:
-                                failed_cores += int(total)
-                            elif int(host.find("Slots/Reserved").text) > 0:
-                                reserved_cores += int(total)
-                            elif host.find("Exclusive").text == "true":
-                                used_cores += int(total)
-                            else:
-                                used_cores += int(host.find("Slots/Used").text)
-
-                        available_cores = total_cores - failed_cores - reserved_cores - used_cores
-
-                        queue_dict[queue_name]["total_cores"] = total_cores
-                        queue_dict[queue_name]["used_cores"] = used_cores
-                        queue_dict[queue_name]["failed_cores"] = failed_cores
-                        queue_dict[queue_name]["reserved_cores"] = reserved_cores
-                        queue_dict[queue_name]["avail_cores"] = available_cores
-
-                evt = SignalEvent(my_SIGNAL_EVT, -1)
-                wx.PostEvent(self._parent, evt)
+                try:
+                    self.parse_cluster_load()
+                except FileNotFoundError:
+                    pass
 
                 counter = 0
 
-            """Update a list of jobs status for a user every 5s"""
-
             if counter % 10 == 0:
-                qstat_list.clear()
-
-                slurm_stat_output = subprocess.check_output(self._parent.squeue, shell=True)
-                slurm_stat_output = slurm_stat_output.decode("ascii", errors="ignore")
-
-                exclude = ['VNC', 'DCV', ""]
-                for i, line in enumerate(slurm_stat_output.split("\n")[1:]):
-                    pid = line[0:18].strip()
-                    partition = line[19:28].strip()
-                    job_name = line[29:38].strip()
-                    user = line[38:47].strip()
-                    state = line[48:49].strip()
-                    num_cpu = line[50:54].strip()
-                    started = line[54:75].strip()
-                    node_list = line[76:].strip()
-
-                    if job_name not in exclude:
-                        qstat_list.append({
-                            "pid": pid,
-                            "state": state,
-                            "name": job_name,
-                            "user": user,
-                            "queue_data": node_list,
-                            "proc": num_cpu,
-                            "started": started
-                        })
-
-                evt = SignalEvent(NEW_SIGNAL_EVT_QSTAT, -1)
-                wx.PostEvent(self._parent, evt)
-
-                # get message texts
-                for pid in self._parent.log_data["PID List"]:
-                    o_file = os.path.join(self._parent.user_dir, 'ansysedt.o' + pid)
-                    if os.path.exists(o_file):
-                        output_text = ''
-                        with open(o_file, 'r') as file:
-                            for msgline in file:
-                                output_text += msgline
-                            if output_text != '':
-                                log_dict["pid"] = pid
-                                log_dict["msg"] = 'Submit Message: ' + output_text
-                                log_dict["scheduler"] = True
-                                evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
-                                wx.PostEvent(self._parent, evt)
-                        os.remove(o_file)
-
-                    e_file = os.path.join(self._parent.user_dir, 'ansysedt.e' + pid)
-                    if os.path.exists(e_file):
-                        error_text = ''
-                        with open(e_file, 'r') as file:
-                            for msgline in file:
-                                error_text += msgline
-                            if error_text != '':
-                                log_dict["pid"] = pid
-                                log_dict["msg"] = 'Submit Error: ' + error_text
-                                log_dict["scheduler"] = True
-                                evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
-                                wx.PostEvent(self._parent, evt)
-
-                        os.remove(e_file)
+                self.parse_user_jobs()
 
             time.sleep(0.5)
             counter += 1
+
+    def parse_user_jobs(self):
+        qstat_list.clear()
+        slurm_stat_output = subprocess.check_output(self._parent.squeue, shell=True)
+        slurm_stat_output = slurm_stat_output.decode("ascii", errors="ignore")
+        exclude = ['VNC', 'DCV', ""]
+        for i, line in enumerate(slurm_stat_output.split("\n")[1:]):
+            pid = line[0:18].strip()
+            partition = line[19:28].strip()
+            job_name = line[29:38].strip()
+            user = line[38:47].strip()
+            state = line[48:49].strip()
+            num_cpu = line[50:54].strip()
+            started = line[54:75].strip()
+            node_list = line[76:].strip()
+
+            if job_name not in exclude:
+                qstat_list.append({
+                    "pid": pid,
+                    "state": state,
+                    "name": job_name,
+                    "user": user,
+                    "queue_data": node_list,
+                    "proc": num_cpu,
+                    "started": started
+                })
+        evt = SignalEvent(NEW_SIGNAL_EVT_QSTAT, -1)
+        wx.PostEvent(self._parent, evt)
+        # get message texts
+        for pid in self._parent.log_data["PID List"]:
+            o_file = os.path.join(self._parent.user_dir, 'ansysedt.o' + pid)
+            if os.path.exists(o_file):
+                output_text = ''
+                with open(o_file, 'r') as file:
+                    for msgline in file:
+                        output_text += msgline
+                    if output_text != '':
+                        log_dict["pid"] = pid
+                        log_dict["msg"] = 'Submit Message: ' + output_text
+                        log_dict["scheduler"] = True
+                        evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
+                        wx.PostEvent(self._parent, evt)
+                os.remove(o_file)
+
+            e_file = os.path.join(self._parent.user_dir, 'ansysedt.e' + pid)
+            if os.path.exists(e_file):
+                error_text = ''
+                with open(e_file, 'r') as file:
+                    for msgline in file:
+                        error_text += msgline
+                    if error_text != '':
+                        log_dict["pid"] = pid
+                        log_dict["msg"] = 'Submit Error: ' + error_text
+                        log_dict["scheduler"] = True
+                        evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
+                        wx.PostEvent(self._parent, evt)
+
+                os.remove(e_file)
+
+    def parse_cluster_load(self):
+        xml_file = os.path.join(self._parent.user_dir, '.aedt', "data.xml")
+        command = "java -jar {} -exportClusterSummaryXmlPath {} >& /dev/null".format(overwatch_file, xml_file)
+        subprocess.call(command, shell=True)
+        with open(xml_file, "r") as file:
+            data = file.read()
+        q_statistics = ET.fromstring(data)
+        for queue_elem in q_statistics.findall("Queues/Queue"):
+            queue_name = queue_elem.get("name")
+            if queue_name in queue_dict:
+                total_cores = 0
+                used_cores = 0
+                reserved_cores = 0
+                failed_cores = 0
+                for host in queue_elem.findall("Hosts/Host"):
+                    total = host.find("Slots/Total").text
+                    total_cores += int(total)
+
+                    if host.find("State").text in ["E", "d", "D", "s", "S", "u", "au"]:
+                        failed_cores += int(total)
+                    elif int(host.find("Slots/Reserved").text) > 0:
+                        reserved_cores += int(total)
+                    elif host.find("Exclusive").text == "true":
+                        used_cores += int(total)
+                    else:
+                        used_cores += int(host.find("Slots/Used").text)
+
+                available_cores = total_cores - failed_cores - reserved_cores - used_cores
+
+                queue_dict[queue_name]["total_cores"] = total_cores
+                queue_dict[queue_name]["used_cores"] = used_cores
+                queue_dict[queue_name]["failed_cores"] = failed_cores
+                queue_dict[queue_name]["reserved_cores"] = reserved_cores
+                queue_dict[queue_name]["avail_cores"] = available_cores
+        evt = SignalEvent(my_SIGNAL_EVT, -1)
+        wx.PostEvent(self._parent, evt)
 
 
 class LauncherWindow(GUIFrame):
