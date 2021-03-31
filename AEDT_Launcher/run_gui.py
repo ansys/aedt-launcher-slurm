@@ -1,5 +1,5 @@
 # IMPORTANT usage note:
-# place sge_settings.areg at the same folder where script is located
+# place slurm_settings.areg at the same folder where script is located
 # modify cluster_configuration.json according to cluster configuration and builds available
 
 import errno
@@ -264,7 +264,6 @@ class LauncherWindow(GUIFrame):
         self.username = getpass.getuser()
         self.hostname = socket.gethostname()
         self.display_node = os.getenv('DISPLAY')
-        self.qstat = "qstat"
         self.squeue = 'squeue --me --format "%.18i %.9P %.8j %.8u %.2t %.4C %.20V %R"'
 
         # get paths
@@ -826,7 +825,7 @@ class LauncherWindow(GUIFrame):
 
         Sets:
         1. EDT Installation path
-        2. SGE scheduler as default
+        2. Slurm scheduler as default
 
         :param aedt_path: path to the installation directory of EDT
         :return: None
@@ -858,9 +857,9 @@ class LauncherWindow(GUIFrame):
         personal_lib = os.path.join(os.environ["HOME"], "Ansoft", "Personallib")
         commands.append(["-RegistryKey", 'Desktop/PersonalLib', "-RegistryValue", personal_lib])
 
-        # set SGE scheduler
-        path_sge_settings = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sge_settings.areg")
-        commands.append(["-FromFile", path_sge_settings])
+        # set Slurm scheduler
+        settings_areg = os.path.join(os.path.dirname(os.path.realpath(__file__)), "slurm_settings.areg")
+        commands.append(["-FromFile", settings_areg])
 
         for command in commands:
             subprocess.call(command_base + command)
