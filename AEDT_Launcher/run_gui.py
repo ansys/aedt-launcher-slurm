@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v2.5"
+__version__ = "v3.0.0"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -258,6 +258,7 @@ class LauncherWindow(GUIFrame):
         global default_queue
         # Initialize the main form
         GUIFrame.__init__(self, parent)
+        GUIFrame.SetTitle(self, f"Ansys Electronics Desktop Launcher {__version__}")
 
         # Get environment data
         self.user_dir = os.path.expanduser('~')
