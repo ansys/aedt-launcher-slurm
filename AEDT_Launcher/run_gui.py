@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.0.0"
+__version__ = "v3.0.0-beta.2"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -162,7 +162,7 @@ class ClusterLoadUpdateThread(threading.Thread):
         qstat_list.clear()
         slurm_stat_output = subprocess.check_output(self._parent.squeue, shell=True)
         slurm_stat_output = slurm_stat_output.decode("ascii", errors="ignore")
-        exclude = ['VNC', 'DCV', ""]
+        exclude = cluster_config["vnc_nodes"] + cluster_config["dcv_nodes"] + [""]
         for i, line in enumerate(slurm_stat_output.split("\n")[1:]):
             pid = line[0:18].strip()
             partition = line[19:28].strip()

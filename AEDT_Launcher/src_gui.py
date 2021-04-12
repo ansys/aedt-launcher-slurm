@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ###########################################################################
-## Python code generated with wxFormBuilder (version 3.9.0 Feb 17 2020)
+## Python code generated with wxFormBuilder (version Oct 26 2018)
 ## http://www.wxformbuilder.org/
 ##
 ## PLEASE DO *NOT* EDIT THIS FILE!
@@ -82,7 +82,7 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.m_staticText12 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Parallel Env.", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
+		self.m_staticText12 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Allocation type", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
 		self.m_staticText12.Wrap( -1 )
 
 		self.m_staticText12.SetMinSize( wx.Size( 100,-1 ) )
@@ -101,12 +101,12 @@ class GUIFrame ( wx.Frame ):
 
 		CoreSizer = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.m_staticText122 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Num. Cores", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
-		self.m_staticText122.Wrap( -1 )
+		self.m_num_cores_caption = wx.StaticText( self.m_panel2, wx.ID_ANY, u"# Cores", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
+		self.m_num_cores_caption.Wrap( -1 )
 
-		self.m_staticText122.SetMinSize( wx.Size( 100,-1 ) )
+		self.m_num_cores_caption.SetMinSize( wx.Size( 100,-1 ) )
 
-		CoreSizer.Add( self.m_staticText122, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
+		CoreSizer.Add( self.m_num_cores_caption, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
 		bSizer13 = wx.BoxSizer( wx.HORIZONTAL )
 
