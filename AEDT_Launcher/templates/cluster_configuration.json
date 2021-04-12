@@ -22,11 +22,11 @@
         "2021 R2_Weekly_Cert": "/ott/apps/daily_builds/linx64/v212_EBU_Certified_Weekly/AnsysEM/AnsysEM21.2/Linux64"
     },
     "queue_config_dict": {
-        "euc09": "(20 cores, 128GB  / node)",
-        "ottc01": "(28 cores, 128GB  / node)",
-        "euc09lm": "(28 cores, 512GB  / node)",
-        "ottc02": "(32 cores, 180GB  / node)",
-        "ottc02lm": "(32 cores, 370GB  / node)"
+        "euc09": {"cores": 20, "ram": 128},
+        "ottc01": {"cores": 28, "ram": 128},
+        "euc09lm": {"cores": 28, "ram": 512},
+        "ottc02": {"cores": 32, "ram": 180},
+        "ottc02lm": {"cores": 32, "ram": 370}
     },
     "default_queue": "euc09"
 }

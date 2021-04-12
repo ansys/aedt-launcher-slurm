@@ -56,12 +56,10 @@ try:
     install_dir = cluster_config["install_dir"]
 
     # define default number of cores for the selected PE (interactive mode)
-    pe_cores = cluster_config["pe_cores"]
-    node_config_dict = cluster_config["node_config_dict"]
+    queue_config_dict = cluster_config["queue_config_dict"]
 
     # dictionary in which we will pop up dynamically information about the load from the OverWatch
     # this dictionary also serves to define parallel environments for each queue
-    queue_dict = cluster_config["queue_dict"]
     default_queue = cluster_config["default_queue"]
 
     project_path = cluster_config["user_project_path_root"]
@@ -71,6 +69,7 @@ except KeyError as key_e:
     sys.exit()
 
 # create keys for usage statistics that would be updated later
+queue_dict = {name: {} for name in queue_config_dict}
 for queue_val in queue_dict.values():
     queue_val["total_cores"] = 100
     queue_val["avail_cores"] = 0
@@ -506,7 +505,7 @@ class LauncherWindow(GUIFrame):
         try:
             self.submit_mode_radiobox.Selection = self.default_settings["mode"]
             self.queue_dropmenu.Value = self.default_settings["queue"]
-            self.pe_dropmenu.Value = self.default_settings["parallel_env"]
+            # self.pe_dropmenu.Value = self.default_settings["parallel_env"] # todo
             self.m_numcore.Value = self.default_settings["num_cores"]
             # self.exclusive_usage_checkbox.Value = self.default_settings["exclusive"]
             self.m_select_version1.Value = self.default_settings["aedt_version"]
@@ -518,10 +517,15 @@ class LauncherWindow(GUIFrame):
             self.reservation_id_text.Value = self.default_settings["reservation_id"]
 
             queue_value = self.queue_dropmenu.GetValue()
-            self.m_node_label.LabelText = node_config_dict[queue_value]
+            self.m_node_label.LabelText = self.construct_node_specs_str(queue_value)
         except wx._core.wxAssertionError:
             add_message("UI was updated or default settings file was corrupted. Please save default settings again",
                         "", "i")
+
+    @staticmethod
+    def construct_node_specs_str(queue):
+        node_str = f"({queue_config_dict[queue]['cores']} Cores, {queue_config_dict[queue]['ram']}GB RAM per node)"
+        return node_str
 
     def reset_settings(self, _unused_event):
         """
@@ -534,11 +538,12 @@ class LauncherWindow(GUIFrame):
     def timer_stop(self):
         self.running = False
 
-    def select_pe(self, _unused=None):
-        """ Callback for the selection of parallel environment. Primarily used to set an appropriate number of cores"""
-        pe_val = self.pe_dropmenu.Value
-        core_val = pe_cores[pe_val]
-        self.m_numcore.Value = str(core_val)
+    def evt_select_allocation(self, _unused=None):
+        """ Callback when user changes allocation strategy"""
+        if self.m_alloc_dropmenu.GetCurrentSelection() == 0:
+            self.m_num_cores_caption.LabelText = "# Cores"
+        else:
+            self.m_num_cores_caption.LabelText = "# Nodes"
 
     def select_mode(self, _unused_event=None):
         """
@@ -557,7 +562,7 @@ class LauncherWindow(GUIFrame):
         self.m_numcore.Enabled = enable
         # self.exclusive_usage_checkbox.Enabled = enable
         self.m_node_label.Enabled = enable
-        self.pe_dropmenu.Enable(enable)
+        self.m_alloc_dropmenu.Enable(enable)
 
     def update_job_status(self, _unused_event):
         """
@@ -641,20 +646,7 @@ class LauncherWindow(GUIFrame):
         """
         queue_value = self.queue_dropmenu.GetValue()
 
-        if not parallel_env:
-            # choose  default PE and set default number of cores
-            parallel_env = queue_dict[queue_value]["default_pe"]
-            set_cores = True
-        else:
-            set_cores = False
-
-        init_combobox(queue_dict[queue_value]["parallel_env"], self.pe_dropmenu, parallel_env)
-
-        if set_cores:
-            self.select_pe()
-
-        node_description = node_config_dict[queue_value]
-        self.m_node_label.LabelText = node_description
+        self.m_node_label.LabelText = self.construct_node_specs_str(queue_value)
 
     def on_advanced_check(self, _unused_event):
         """

@@ -89,12 +89,12 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer.Add( self.m_staticText12, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
-		pe_dropmenuChoices = []
-		self.pe_dropmenu = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, pe_dropmenuChoices, wx.CB_READONLY )
-		self.pe_dropmenu.SetSelection( 0 )
-		self.pe_dropmenu.SetMinSize( wx.Size( 150,-1 ) )
+		m_alloc_dropmenuChoices = [ u"1 Node and Cores", u"Multiple Nodes" ]
+		self.m_alloc_dropmenu = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, m_alloc_dropmenuChoices, wx.CB_READONLY )
+		self.m_alloc_dropmenu.SetSelection( 0 )
+		self.m_alloc_dropmenu.SetMinSize( wx.Size( 150,-1 ) )
 
-		PESizer.Add( self.pe_dropmenu, 0, wx.ALL, 5 )
+		PESizer.Add( self.m_alloc_dropmenu, 0, wx.ALL, 5 )
 
 
 		bSizer7.Add( PESizer, 0, wx.ALL, 5 )
@@ -440,7 +440,7 @@ class GUIFrame ( wx.Frame ):
 		self.Bind( wx.EVT_CLOSE, self.shutdown_app )
 		self.submit_mode_radiobox.Bind( wx.EVT_RADIOBOX, self.select_mode )
 		self.queue_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_queue )
-		self.pe_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_pe )
+		self.m_alloc_dropmenu.Bind( wx.EVT_COMBOBOX, self.evt_select_allocation )
 		self.reserved_checkbox.Bind( wx.EVT_CHECKBOX, self.on_reserve_check )
 		self.set_path_button.Bind( wx.EVT_BUTTON, self.set_project_path )
 		self.m_button1.Bind( wx.EVT_BUTTON, self.click_launch )
@@ -470,7 +470,7 @@ class GUIFrame ( wx.Frame ):
 	def select_queue( self, event ):
 		event.Skip()
 
-	def select_pe( self, event ):
+	def evt_select_allocation( self, event ):
 		event.Skip()
 
 	def on_reserve_check( self, event ):
