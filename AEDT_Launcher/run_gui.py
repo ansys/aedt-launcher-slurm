@@ -161,7 +161,7 @@ class ClusterLoadUpdateThread(threading.Thread):
         qstat_list.clear()
         slurm_stat_output = subprocess.check_output(self._parent.squeue, shell=True)
         slurm_stat_output = slurm_stat_output.decode("ascii", errors="ignore")
-        exclude = cluster_config["vnc_nodes"] + cluster_config["dcv_nodes"] + [""]
+        exclude = cluster_config["vnc_nodes"] + cluster_config["dcv_nodes"]
         for i, line in enumerate(slurm_stat_output.split("\n")[1:]):
             pid = line[0:18].strip()
             partition = line[19:28].strip()
@@ -172,7 +172,11 @@ class ClusterLoadUpdateThread(threading.Thread):
             started = line[54:75].strip()
             node_list = line[76:].strip()
 
-            if job_name not in exclude:
+            for node in exclude:
+                if node in node_list:
+                    break
+            else:
+                # it is neither VNC nor DCV job
                 qstat_list.append({
                     "pid": pid,
                     "state": state,
@@ -314,9 +318,9 @@ class LauncherWindow(GUIFrame):
                     raise
 
         # Set the status bars on the bottom of the window
-        self.m_statusBar1.SetStatusText('User: ' + self.username + ' on ' + viz_type + ' node ' + self.display_node, 0)
-        self.m_statusBar1.SetStatusText(msg, 1)
-        self.m_statusBar1.SetStatusWidths([500, -1])
+        self.m_status_bar.SetStatusText('User: ' + self.username + ' on ' + viz_type + ' node ' + self.display_node, 0)
+        self.m_status_bar.SetStatusText(msg, 1)
+        self.m_status_bar.SetStatusWidths([500, -1])
 
         init_combobox(install_dir.keys(), self.m_select_version1, default_version)
 
@@ -524,6 +528,14 @@ class LauncherWindow(GUIFrame):
 
     @staticmethod
     def construct_node_specs_str(queue):
+        """
+        Construct node description string from cluster configuration data
+        Args:
+            queue: queue for which we need a node description
+
+        Returns (str): string for the UI with number of cores and RAM per node
+
+        """
         node_str = f"({queue_config_dict[queue]['cores']} Cores, {queue_config_dict[queue]['ram']}GB RAM per node)"
         return node_str
 
@@ -537,6 +549,27 @@ class LauncherWindow(GUIFrame):
 
     def timer_stop(self):
         self.running = False
+
+    def evt_num_cores_nodes_change(self, event):
+        try:
+            num_cores_or_nodes = int(self.m_numcore.Value)
+        except ValueError:
+            # todo add status message
+            return
+
+        cores_per_node = queue_config_dict[self.queue_dropmenu.Value]["cores"]
+        ram_per_node = queue_config_dict[self.queue_dropmenu.Value]["ram"]
+        if self.m_alloc_dropmenu.GetCurrentSelection() == 0:
+            if num_cores_or_nodes > cores_per_node:
+                self.m_numcore.Value = str(cores_per_node)
+                # todo add status message
+            summary_msg = f"You request {self.m_numcore.Value} Cores and {ram_per_node}GB of shared RAM"
+        else:
+            total_cores = cores_per_node * num_cores_or_nodes
+            total_ram = ram_per_node * num_cores_or_nodes
+            summary_msg = f"You request {total_cores} Cores and {total_ram}GB RAM"
+
+        self.m_summary_caption.LabelText = summary_msg
 
     def evt_select_allocation(self, _unused=None):
         """ Callback when user changes allocation strategy"""
@@ -679,7 +712,7 @@ class LauncherWindow(GUIFrame):
         # Scheduler data
         scheduler = 'sbatch'
         queue = self.queue_dropmenu.Value
-        penv = self.pe_dropmenu.Value
+        allocation_rule = self.m_alloc_dropmenu.GetCurrentSelection()
         num_cores = self.m_numcore.Value
         aedt_version = self.m_select_version1.Value
         aedt_path = install_dir[aedt_version]

@@ -1,10 +1,10 @@
 {   "path_to_ssh": "/nfs/ott/apps/admin/run_me_first.sh",
     "user_project_path_root": "/lus01",
     "vnc_nodes": [
-        "VNC"
+        "ottvnc"
     ],
     "dcv_nodes": [
-        "DCV"
+        "eurgs"
     ],
     "default_version": "2021 R1",
     "install_dir": {

@@ -37,16 +37,6 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer1 = wx.BoxSizer( wx.VERTICAL )
 
-		self.title_caption = wx.StaticText( self.m_panel2, wx.ID_ANY, u"AEDT Launcher", wx.DefaultPosition, wx.DefaultSize, 0 )
-		self.title_caption.Wrap( -1 )
-
-		self.title_caption.SetFont( wx.Font( 14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
-
-		bSizer1.Add( self.title_caption, 0, wx.ALL, 5 )
-
-		self.m_staticline1 = wx.StaticLine( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL )
-		bSizer1.Add( self.m_staticline1, 0, wx.EXPAND |wx.ALL, 5 )
-
 		bSizer14 = wx.BoxSizer( wx.HORIZONTAL )
 
 		bSizer261 = wx.BoxSizer( wx.VERTICAL )
@@ -82,7 +72,7 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.m_staticText12 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Allocation type", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
+		self.m_staticText12 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Allocation", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
 		self.m_staticText12.Wrap( -1 )
 
 		self.m_staticText12.SetMinSize( wx.Size( 100,-1 ) )
@@ -125,6 +115,11 @@ class GUIFrame ( wx.Frame ):
 
 
 		bSizer7.Add( CoreSizer, 0, wx.ALL, 5 )
+
+		self.m_summary_caption = wx.StaticText( self.m_panel2, wx.ID_ANY, u"You will get <> Cores and <> RAM", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_summary_caption.Wrap( -1 )
+
+		bSizer7.Add( self.m_summary_caption, 0, wx.ALL, 5 )
 
 		reserved_sizer = wx.BoxSizer( wx.HORIZONTAL )
 
@@ -286,6 +281,8 @@ class GUIFrame ( wx.Frame ):
 		bSizer1411.Add( self.load_grid, 0, wx.ALL, 5 )
 
 		self.overwatch_button = wx.Button( self.m_panel2, wx.ID_ANY, u"See full statistics in OverWatch", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.overwatch_button.Enable( False )
+
 		bSizer1411.Add( self.overwatch_button, 0, wx.ALL, 5 )
 
 
@@ -295,7 +292,7 @@ class GUIFrame ( wx.Frame ):
 
 		self.qstat_viewlist = wx.dataview.DataViewListCtrl( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.qstat_viewlist.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
-		self.qstat_viewlist.SetMinSize( wx.Size( 800,250 ) )
+		self.qstat_viewlist.SetMinSize( wx.Size( 800,160 ) )
 
 		bSizer141.Add( self.qstat_viewlist, 0, wx.ALL, 5 )
 
@@ -429,8 +426,8 @@ class GUIFrame ( wx.Frame ):
 		self.m_grid1.SetDefaultCellAlignment( wx.ALIGN_LEFT, wx.ALIGN_TOP )
 		self.m_mgr.AddPane( self.m_grid1, wx.aui.AuiPaneInfo() .Left() .PinButton( True ).Hide().Dock().Resizable().FloatingSize( wx.DefaultSize ) )
 
-		self.m_statusBar1 = self.CreateStatusBar( 2, wx.STB_SIZEGRIP, wx.ID_ANY )
-		self.m_statusBar1.SetMinSize( wx.Size( 180,-1 ) )
+		self.m_status_bar = self.CreateStatusBar( 2, wx.STB_SIZEGRIP, wx.ID_ANY )
+		self.m_status_bar.SetMinSize( wx.Size( 180,-1 ) )
 
 
 		self.m_mgr.Update()
@@ -441,6 +438,7 @@ class GUIFrame ( wx.Frame ):
 		self.submit_mode_radiobox.Bind( wx.EVT_RADIOBOX, self.select_mode )
 		self.queue_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_queue )
 		self.m_alloc_dropmenu.Bind( wx.EVT_COMBOBOX, self.evt_select_allocation )
+		self.m_numcore.Bind( wx.EVT_TEXT, self.evt_num_cores_nodes_change )
 		self.reserved_checkbox.Bind( wx.EVT_CHECKBOX, self.on_reserve_check )
 		self.set_path_button.Bind( wx.EVT_BUTTON, self.set_project_path )
 		self.m_button1.Bind( wx.EVT_BUTTON, self.click_launch )
@@ -471,6 +469,9 @@ class GUIFrame ( wx.Frame ):
 		event.Skip()
 
 	def evt_select_allocation( self, event ):
+		event.Skip()
+
+	def evt_num_cores_nodes_change( self, event ):
 		event.Skip()
 
 	def on_reserve_check( self, event ):
