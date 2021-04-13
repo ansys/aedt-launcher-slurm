@@ -398,12 +398,10 @@ class LauncherWindow(GUIFrame):
         self.read_custom_builds()
 
         # populate UI with default or pre-saved settings
-        parallel_env = None
         if os.path.isfile(self.default_settings_json):
             try:
-                self.set_user_settings()
+                self.settings_load()
                 default_queue = self.default_settings["queue"]
-                parallel_env = self.default_settings["parallel_env"]
             except KeyError:
                 add_message("Settings file was corrupted", "Settings file", "!")
 
@@ -418,7 +416,7 @@ class LauncherWindow(GUIFrame):
             self.advanced_options_text.Value = ",".join(advanced_list)
 
         init_combobox(queue_dict.keys(), self.queue_dropmenu, default_queue)
-        self.select_queue(None, parallel_env)  # if we read from a file then keep saved PE
+        self.select_queue()
 
         self.on_reserve_check()
 
@@ -478,16 +476,16 @@ class LauncherWindow(GUIFrame):
         with open(self.user_build_json, "w") as file:
             json.dump(self.builds_data, file, indent=4)
 
-    def save_user_settings(self, _unused_event):
+    def settings_save(self, _unused_event):
         """
             Take all values from the UI and dump them to the .json file
         """
         self.default_settings = {
+            "version": __version__,
             "mode": self.submit_mode_radiobox.Selection,
             "queue": self.queue_dropmenu.GetValue(),
-            "parallel_env": self.pe_dropmenu.GetValue(),
+            "allocation": self.m_alloc_dropmenu.GetValue(),
             "num_cores": self.m_numcore.Value,
-            # "exclusive": self.exclusive_usage_checkbox.Value,
             "aedt_version": self.m_select_version1.Value,
             "env_var": self.env_var_text.Value,
             "advanced": self.advanced_options_text.Value,
@@ -499,7 +497,7 @@ class LauncherWindow(GUIFrame):
         with open(self.default_settings_json, "w") as file:
             json.dump(self.default_settings, file, indent=4)
 
-    def set_user_settings(self):
+    def settings_load(self):
         """
             Read settings file and populate UI with values
         """
@@ -507,11 +505,10 @@ class LauncherWindow(GUIFrame):
             self.default_settings = json.load(file)
 
         try:
+            # todo add allocation
             self.submit_mode_radiobox.Selection = self.default_settings["mode"]
             self.queue_dropmenu.Value = self.default_settings["queue"]
-            # self.pe_dropmenu.Value = self.default_settings["parallel_env"] # todo
             self.m_numcore.Value = self.default_settings["num_cores"]
-            # self.exclusive_usage_checkbox.Value = self.default_settings["exclusive"]
             self.m_select_version1.Value = self.default_settings["aedt_version"]
             self.env_var_text.Value = self.default_settings["env_var"]
             self.advanced_options_text.Value = self.default_settings["advanced"]
@@ -539,7 +536,7 @@ class LauncherWindow(GUIFrame):
         node_str = f"({queue_config_dict[queue]['cores']} Cores, {queue_config_dict[queue]['ram']}GB RAM per node)"
         return node_str
 
-    def reset_settings(self, _unused_event):
+    def settings_reset(self, _unused_event):
         """
             Fired on click to reset to factory. Will remove settings previously set by user
         """
@@ -550,11 +547,15 @@ class LauncherWindow(GUIFrame):
     def timer_stop(self):
         self.running = False
 
-    def evt_num_cores_nodes_change(self, event):
+    def evt_num_cores_nodes_change(self, _unused=None):
         try:
             num_cores_or_nodes = int(self.m_numcore.Value)
         except ValueError:
             # todo add status message
+            return
+
+        if num_cores_or_nodes < 1:
+            self.m_numcore.Value = str(1)
             return
 
         cores_per_node = queue_config_dict[self.queue_dropmenu.Value]["cores"]
@@ -595,7 +596,9 @@ class LauncherWindow(GUIFrame):
         self.m_numcore.Enabled = enable
         # self.exclusive_usage_checkbox.Enabled = enable
         self.m_node_label.Enabled = enable
-        self.m_alloc_dropmenu.Enable(enable)
+        # self.m_alloc_dropmenu.Enable(enable)  # todo enable if Slurm will support non-exclusive
+        self.evt_select_allocation()
+        self.evt_num_cores_nodes_change()
 
     def update_job_status(self, _unused_event):
         """
@@ -669,17 +672,17 @@ class LauncherWindow(GUIFrame):
             log_dict["scheduler"] = False
             self.add_log_entry()
 
-    def select_queue(self, _unused_event, parallel_env=None):
+    def select_queue(self, _unused_event=None):
         """
         Called when user selects a value in Queue drop down menu (or during __init__ to fill the UI).
         Sets PE and number of cores for each queue
-        :param parallel_env: PE that should be used, set when call from __init__
         :param _unused_event: default event of UI component
         :return: None
         """
         queue_value = self.queue_dropmenu.GetValue()
 
         self.m_node_label.LabelText = self.construct_node_specs_str(queue_value)
+        self.evt_num_cores_nodes_change()
 
     def on_advanced_check(self, _unused_event):
         """
@@ -713,7 +716,7 @@ class LauncherWindow(GUIFrame):
         scheduler = 'sbatch'
         queue = self.queue_dropmenu.Value
         allocation_rule = self.m_alloc_dropmenu.GetCurrentSelection()
-        num_cores = self.m_numcore.Value
+        num_nodes = num_cores = int(self.m_numcore.Value)
         aedt_version = self.m_select_version1.Value
         aedt_path = install_dir[aedt_version]
 
@@ -744,13 +747,21 @@ class LauncherWindow(GUIFrame):
             print("Error sending statistics")
 
         if op_mode == 1:
-            command = [scheduler, "--job-name", "aedt", "--partition", queue, "--ntasks", num_cores,
-                       "--export", env]
+            command = [scheduler, "--job-name", "aedt", "--partition", queue, "--export", env]
+
+            if allocation_rule == 0:
+                # 1 node and cores
+                command += ["--nodes", "1-1", "--ntasks", str(num_cores)]
+                total_cores = num_cores
+            else:
+                cores_per_node = queue_config_dict[queue]["cores"]
+                total_cores = cores_per_node * num_nodes
+                command += ["--nodes", f"{num_nodes}-{num_nodes}", "--ntasks", str(total_cores)]
 
             if reservation:
                 command += ["--reservation", reservation_id]
 
-            aedt_str = " ".join([os.path.join(aedt_path, "ansysedt"), "-machinelist", "num=" + num_cores])
+            aedt_str = " ".join([os.path.join(aedt_path, "ansysedt"), "-machinelist", f"num={total_cores}"])
             command += ["--wrap", f'"{aedt_str}"']
             command = " ".join(command)  # convert to string to avoid escaping characters
             res = subprocess.check_output(command, shell=True)
@@ -764,12 +775,12 @@ class LauncherWindow(GUIFrame):
             self.log_data["PID List"].append(pid)
 
         else:
-            if reservation:
-                if reservation_id:
-                    with open(self.sge_request_file, "w") as file:  # todo update for slurm
-                        file.write(f"-ar {reservation_id}")
-                else:
-                    return
+            # if reservation:
+            #     if reservation_id:
+            #         with open(self.sge_request_file, "w") as file:  # todo update for slurm
+            #             file.write(f"-ar {reservation_id}")
+            #     else:
+            #         return
 
             threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env,)).start()
 

@@ -81,7 +81,8 @@ class GUIFrame ( wx.Frame ):
 
 		m_alloc_dropmenuChoices = [ u"1 Node and Cores", u"Multiple Nodes" ]
 		self.m_alloc_dropmenu = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, m_alloc_dropmenuChoices, wx.CB_READONLY )
-		self.m_alloc_dropmenu.SetSelection( 0 )
+		self.m_alloc_dropmenu.SetSelection( 1 )
+		self.m_alloc_dropmenu.Enable( False )
 		self.m_alloc_dropmenu.SetMinSize( wx.Size( 150,-1 ) )
 
 		PESizer.Add( self.m_alloc_dropmenu, 0, wx.ALL, 5 )
@@ -100,7 +101,7 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer13 = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.m_numcore = wx.TextCtrl( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_numcore = wx.TextCtrl( self.m_panel2, wx.ID_ANY, u"1", wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.m_numcore.SetMinSize( wx.Size( 50,-1 ) )
 
 		bSizer13.Add( self.m_numcore, 0, wx.ALL, 5 )
@@ -447,8 +448,8 @@ class GUIFrame ( wx.Frame ):
 		self.qstat_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_ACTIVATED, self.leftclick_processtable, id = wx.ID_ANY )
 		self.m_checkBox_allmsg.Bind( wx.EVT_CHECKBOX, self.m_update_msg_list )
 		self.scheduler_msg_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_CONTEXT_MENU, self.rmb_on_scheduler_msg_list, id = wx.ID_ANY )
-		self.save_button.Bind( wx.EVT_BUTTON, self.save_user_settings )
-		self.reset_button.Bind( wx.EVT_BUTTON, self.reset_settings )
+		self.save_button.Bind( wx.EVT_BUTTON, self.settings_save )
+		self.reset_button.Bind( wx.EVT_BUTTON, self.settings_reset )
 		self.close_button.Bind( wx.EVT_BUTTON, self.shutdown_app )
 		self.delete_build_button.Bind( wx.EVT_BUTTON, self.delete_row )
 		self.add_build_button.Bind( wx.EVT_BUTTON, self.add_new_build )
@@ -498,10 +499,10 @@ class GUIFrame ( wx.Frame ):
 	def rmb_on_scheduler_msg_list( self, event ):
 		event.Skip()
 
-	def save_user_settings( self, event ):
+	def settings_save( self, event ):
 		event.Skip()
 
-	def reset_settings( self, event ):
+	def settings_reset( self, event ):
 		event.Skip()
 
 
