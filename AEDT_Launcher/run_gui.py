@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.0.0-beta.3"
+__version__ = "v3.0.0-beta.4"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -329,13 +329,6 @@ class LauncherWindow(GUIFrame):
 
         init_combobox(install_dir.keys(), self.m_select_version1, default_version)
 
-        # create a list of default environmental variables
-        self.interactive_env = ",".join(["DISPLAY=" + self.display_node, "ANS_NODEPCHECK=1"])
-
-        self.advanced_options_text.Value = self.interactive_env
-
-        self.local_env = "ANS_NODEPCHECK=1"
-
         # Setup Process Log
         self.scheduler_msg_viewlist.AppendTextColumn('Timestamp', width=140)
         self.scheduler_msg_viewlist.AppendTextColumn('PID', width=75)
@@ -399,7 +392,6 @@ class LauncherWindow(GUIFrame):
 
         self.select_mode()
         self.m_notebook2.ChangeSelection(0)
-        self.advanced_options_text.Hide()  # hide on start since hidden attribute is not working in wxBuilder
         self.read_custom_builds()
 
         # populate UI with default or pre-saved settings
@@ -410,19 +402,10 @@ class LauncherWindow(GUIFrame):
             except KeyError:
                 add_message("Settings file was corrupted", "Settings file", "!")
 
-        # check that DISPLAY was overwritten if VNC node was changed
-        if self.display_node not in self.advanced_options_text.Value:
-            advanced_list = self.advanced_options_text.Value.split(",")
-            for index, variable in enumerate(advanced_list):
-                if "DISPLAY" in variable:
-                    advanced_list[index] = "DISPLAY=" + self.display_node
-                    break
-
-            self.advanced_options_text.Value = ",".join(advanced_list)
-
         init_combobox(queue_dict.keys(), self.queue_dropmenu, default_queue)
         self.select_queue()
 
+        self.evt_node_list_check()
         self.on_reserve_check()
 
         # run in parallel to UI regular update of chart and process list
@@ -493,7 +476,8 @@ class LauncherWindow(GUIFrame):
             "num_cores": self.m_numcore.Value,
             "aedt_version": self.m_select_version1.Value,
             "env_var": self.env_var_text.Value,
-            "advanced": self.advanced_options_text.Value,
+            "use_node_list": self.m_nodes_list_checkbox.Value,
+            "node_list": self.m_nodes_list.Value,
             "project_path": self.path_textbox.Value,
             "use_reservation": self.reserved_checkbox.Value,
             "reservation_id": self.reservation_id_text.Value
@@ -516,7 +500,10 @@ class LauncherWindow(GUIFrame):
             self.m_numcore.Value = self.default_settings["num_cores"]
             self.m_select_version1.Value = self.default_settings["aedt_version"]
             self.env_var_text.Value = self.default_settings["env_var"]
-            self.advanced_options_text.Value = self.default_settings["advanced"]
+
+            self.m_nodes_list.Value = self.default_settings.get("node_list", "")
+            self.m_nodes_list_checkbox.Value = self.default_settings.get("use_node_list", False)
+
             self.path_textbox.Value = self.default_settings["project_path"]
 
             self.reserved_checkbox.Value = self.default_settings["use_reservation"]
@@ -592,15 +579,16 @@ class LauncherWindow(GUIFrame):
         sel = self.submit_mode_radiobox.Selection
         if sel == 0:
             enable = False
-            self.advanced_options_text.Value = self.local_env
+            self.m_nodes_list_checkbox.Value = False
         else:
             enable = True
-            self.advanced_options_text.Value = self.interactive_env
 
         self.queue_dropmenu.Enabled = enable
         self.m_numcore.Enabled = enable
-        # self.exclusive_usage_checkbox.Enabled = enable
         self.m_node_label.Enabled = enable
+
+        self.m_nodes_list_checkbox.Enabled = enable
+        self.m_nodes_list.Enabled = enable
         # self.m_alloc_dropmenu.Enable(enable)  # todo enable if Slurm will support non-exclusive
         self.evt_select_allocation()
         self.evt_num_cores_nodes_change()
@@ -689,15 +677,15 @@ class LauncherWindow(GUIFrame):
         self.m_node_label.LabelText = self.construct_node_specs_str(queue_value)
         self.evt_num_cores_nodes_change()
 
-    def on_advanced_check(self, _unused_event):
+    def evt_node_list_check(self, _unused_event=None):
         """
-            callback called when clicked Advanced options.
-            Hides/Shows input field for environment variables
+            callback called when clicked "Specify node list" options.
+            Hides/Shows input field for node list
         """
-        if self.advanced_checkbox.Value:
-            self.advanced_options_text.Show()
+        if self.m_nodes_list_checkbox.Value:
+            self.m_nodes_list.Show()
         else:
-            self.advanced_options_text.Hide()
+            self.m_nodes_list.Hide()
 
     def on_reserve_check(self, _unused_event=None):
         """
@@ -725,7 +713,7 @@ class LauncherWindow(GUIFrame):
         aedt_version = self.m_select_version1.Value
         aedt_path = install_dir[aedt_version]
 
-        env = self.advanced_options_text.Value
+        env = "ALL,ANS_NODEPCHECK=1"
         if self.env_var_text.Value:
             env += "," + self.env_var_text.Value
 
@@ -762,6 +750,9 @@ class LauncherWindow(GUIFrame):
                 cores_per_node = queue_config_dict[queue]["cores"]
                 total_cores = cores_per_node * num_nodes
                 command += ["--nodes", f"{num_nodes}-{num_nodes}", "--ntasks", str(total_cores)]
+
+            if self.m_nodes_list_checkbox.Value and self.m_nodes_list.Value:
+                command += ["--nodelist", self.m_nodes_list.Value]
 
             if reservation:
                 command += ["--reservation", reservation_id]

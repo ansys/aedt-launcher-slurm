@@ -216,14 +216,14 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer1 = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.advanced_checkbox = wx.CheckBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
-		self.advanced_checkbox.SetFont( wx.Font( wx.NORMAL_FONT.GetPointSize(), wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
-		self.advanced_checkbox.SetMinSize( wx.Size( 20,-1 ) )
-		self.advanced_checkbox.SetMaxSize( wx.Size( 20,-1 ) )
+		self.m_nodes_list_checkbox = wx.CheckBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_nodes_list_checkbox.SetFont( wx.Font( wx.NORMAL_FONT.GetPointSize(), wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
+		self.m_nodes_list_checkbox.SetMinSize( wx.Size( 20,-1 ) )
+		self.m_nodes_list_checkbox.SetMaxSize( wx.Size( 20,-1 ) )
 
-		PESizer1.Add( self.advanced_checkbox, 0, wx.ALL, 5 )
+		PESizer1.Add( self.m_nodes_list_checkbox, 0, wx.ALL, 5 )
 
-		self.m_staticText12111 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Modify advanced options", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
+		self.m_staticText12111 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Specify Nodes", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
 		self.m_staticText12111.Wrap( 1 )
 
 		self.m_staticText12111.SetMinSize( wx.Size( 64,-1 ) )
@@ -231,11 +231,12 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer1.Add( self.m_staticText12111, 0, wx.ALL, 5 )
 
-		self.advanced_options_text = wx.TextCtrl( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
-		self.advanced_options_text.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
-		self.advanced_options_text.SetMinSize( wx.Size( 500,65 ) )
+		self.m_nodes_list = wx.TextCtrl( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
+		self.m_nodes_list.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
+		self.m_nodes_list.SetToolTip( u"The list may be specified as a comma-separated list of hosts (ottc01sn019,ottc01sn020), or a range of hosts (ottc01sn[019-022,27])" )
+		self.m_nodes_list.SetMinSize( wx.Size( 500,65 ) )
 
-		PESizer1.Add( self.advanced_options_text, 0, wx.ALIGN_TOP|wx.ALL, 5 )
+		PESizer1.Add( self.m_nodes_list, 0, wx.ALIGN_TOP|wx.ALL, 5 )
 
 
 		bSizer71.Add( PESizer1, 1, wx.ALL, 5 )
@@ -441,7 +442,7 @@ class GUIFrame ( wx.Frame ):
 		self.reserved_checkbox.Bind( wx.EVT_CHECKBOX, self.on_reserve_check )
 		self.set_path_button.Bind( wx.EVT_BUTTON, self.set_project_path )
 		self.m_button1.Bind( wx.EVT_BUTTON, self.click_launch )
-		self.advanced_checkbox.Bind( wx.EVT_CHECKBOX, self.on_advanced_check )
+		self.m_nodes_list_checkbox.Bind( wx.EVT_CHECKBOX, self.evt_node_list_check )
 		self.overwatch_button.Bind( wx.EVT_BUTTON, self.submit_overwatch_thread )
 		self.qstat_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_ACTIVATED, self.leftclick_processtable, id = wx.ID_ANY )
 		self.m_checkBox_allmsg.Bind( wx.EVT_CHECKBOX, self.m_update_msg_list )
@@ -482,7 +483,7 @@ class GUIFrame ( wx.Frame ):
 	def click_launch( self, event ):
 		event.Skip()
 
-	def on_advanced_check( self, event ):
+	def evt_node_list_check( self, event ):
 		event.Skip()
 
 	def submit_overwatch_thread( self, event ):
