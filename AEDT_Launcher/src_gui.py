@@ -281,9 +281,7 @@ class GUIFrame ( wx.Frame ):
 		self.load_grid.SetDefaultCellAlignment( wx.ALIGN_CENTER, wx.ALIGN_TOP )
 		bSizer1411.Add( self.load_grid, 0, wx.ALL, 5 )
 
-		self.overwatch_button = wx.Button( self.m_panel2, wx.ID_ANY, u"See full statistics in OverWatch", wx.DefaultPosition, wx.DefaultSize, 0 )
-		self.overwatch_button.Enable( False )
-
+		self.overwatch_button = wx.Button( self.m_panel2, wx.ID_ANY, u"Open OverWatch", wx.DefaultPosition, wx.DefaultSize, 0 )
 		bSizer1411.Add( self.overwatch_button, 0, wx.ALL, 5 )
 
 

@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.0.0-beta.2"
+__version__ = "v3.0.0-beta.3"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -225,7 +225,12 @@ class ClusterLoadUpdateThread(threading.Thread):
         subprocess.call(command, shell=True)
         with open(xml_file, "r") as file:
             data = file.read()
-        q_statistics = ET.fromstring(data)
+
+        try:
+            q_statistics = ET.fromstring(data)
+        except ET.ParseError:
+            return
+
         for queue_elem in q_statistics.findall("Queues/Queue"):
             queue_name = queue_elem.get("name")
             if queue_name in queue_dict:
@@ -980,7 +985,7 @@ class LauncherWindow(GUIFrame):
 
     def open_overwatch(self):
         """ Open Overwatch with java """
-        command = ["java", "-jar", overwatch_file, ">& /dev/null"]
+        command = ["/bin/firefox", f"http://azewlacege8769.ansys.com/users/{self.username}"]
         subprocess.call(command)
 
     @staticmethod
