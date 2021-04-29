@@ -7,6 +7,7 @@ import getpass
 import json
 import os
 import re
+import requests
 import shutil
 import signal
 import socket
@@ -14,7 +15,6 @@ import subprocess
 import sys
 import threading
 import time
-import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from datetime import datetime
 
@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.0.0-beta.4"
+__version__ = "v3.0.0"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -49,7 +49,8 @@ except json.decoder.JSONDecodeError:
 
 try:
     path_to_ssh = cluster_config["path_to_ssh"]
-    overwatch_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "overwatch.jar")
+    overwatch_url = cluster_config["overwatch_url"]
+    overwatch_api_url = cluster_config["overwatch_api_url"]
 
     # dictionary for the versions
     default_version = cluster_config["default_version"]
@@ -146,8 +147,10 @@ class ClusterLoadUpdateThread(threading.Thread):
             if counter % 120 == 0:
                 try:
                     self.parse_cluster_load()
-                except FileNotFoundError:
-                    pass
+                except (requests.exceptions.BaseHTTPError, requests.exceptions.RequestException):
+                    print("Cannot reach OverWatch server")
+                except KeyError:
+                    print("Cannot parse OverWatch data. Probably Service is down.")
 
                 counter = 0
 
@@ -220,44 +223,23 @@ class ClusterLoadUpdateThread(threading.Thread):
                 os.remove(e_file)
 
     def parse_cluster_load(self):
-        xml_file = os.path.join(self._parent.user_dir, '.aedt', "data.xml")
-        command = "java -jar {} -exportClusterSummaryXmlPath {} >& /dev/null".format(overwatch_file, xml_file)
-        subprocess.call(command, shell=True)
-        with open(xml_file, "r") as file:
-            data = file.read()
+        """
+        Function that parses data from Overwatch and generates dictionary with cluster load for each queue
+        Returns:
 
-        try:
-            q_statistics = ET.fromstring(data)
-        except ET.ParseError:
-            return
+        """
+        # with requests.get(overwatch_url, params={"cluster": "ott"}) as url_req:  # could be used with params
+        with requests.get(f"{overwatch_api_url}/api/v1/overwatch/minclusterstatus") as url_req:
+            cluster_data = url_req.json()
 
-        for queue_elem in q_statistics.findall("Queues/Queue"):
-            queue_name = queue_elem.get("name")
+        for queue_elem in cluster_data["Queues"]:
+            queue_name = queue_elem["name"]
             if queue_name in queue_dict:
-                total_cores = 0
-                used_cores = 0
-                reserved_cores = 0
-                failed_cores = 0
-                for host in queue_elem.findall("Hosts/Host"):
-                    total = host.find("Slots/Total").text
-                    total_cores += int(total)
-
-                    if host.find("State").text in ["E", "d", "D", "s", "S", "u", "au"]:
-                        failed_cores += int(total)
-                    elif int(host.find("Slots/Reserved").text) > 0:
-                        reserved_cores += int(total)
-                    elif host.find("Exclusive").text == "true":
-                        used_cores += int(total)
-                    else:
-                        used_cores += int(host.find("Slots/Used").text)
-
-                available_cores = total_cores - failed_cores - reserved_cores - used_cores
-
-                queue_dict[queue_name]["total_cores"] = total_cores
-                queue_dict[queue_name]["used_cores"] = used_cores
-                queue_dict[queue_name]["failed_cores"] = failed_cores
-                queue_dict[queue_name]["reserved_cores"] = reserved_cores
-                queue_dict[queue_name]["avail_cores"] = available_cores
+                queue_dict[queue_name]["total_cores"] = queue_elem["totalSlots"]
+                queue_dict[queue_name]["used_cores"] = queue_elem["totalUsedSlots"]
+                queue_dict[queue_name]["failed_cores"] = queue_elem["totalUnavailableSlots"]
+                queue_dict[queue_name]["reserved_cores"] = queue_elem["totalReservedSlots"]
+                queue_dict[queue_name]["avail_cores"] = queue_elem["totalAvailableSlots"]
         evt = SignalEvent(my_SIGNAL_EVT, -1)
         wx.PostEvent(self._parent, evt)
 
@@ -724,7 +706,7 @@ class LauncherWindow(GUIFrame):
             env = env.rstrip(",").lstrip(",")
 
         try:
-            self.set_registry(aedt_path)
+            self.update_registry(aedt_path)
         except FileNotFoundError:
             add_message("Verify project directory. Probably user name was changed", "Wrong project path", "!")
             return
@@ -848,7 +830,7 @@ class LauncherWindow(GUIFrame):
 
         client.write_points(json_body)
 
-    def set_registry(self, aedt_path):
+    def update_registry(self, aedt_path):
         """
         Function to set registry for each run of EDT since each run is happening on different Linux node.
         Disables:
@@ -880,6 +862,10 @@ class LauncherWindow(GUIFrame):
 
         # set installation path
         commands.append(["-RegistryKey", 'Desktop/InstallationDirectory', "-RegistryValue", aedt_path])
+
+        # set proper IP address for MPI
+        commands.append(["-RegistryKey", 'Desktop/Settings/ProjectOptions/AnsysEMPreferredSubnetAddress',
+                         "-RegistryValue", "10.105.232.0/22"])
 
         # set project folder
         commands.append(["-RegistryKey", 'Desktop/ProjectDirectory', "-RegistryValue", self.path_textbox.Value])
@@ -976,7 +962,7 @@ class LauncherWindow(GUIFrame):
 
     def open_overwatch(self):
         """ Open Overwatch with java """
-        command = ["/bin/firefox", f"http://azewlacege8769.ansys.com/users/{self.username}"]
+        command = ["/bin/firefox", f"{overwatch_url}/users/{self.username}"]
         subprocess.call(command)
 
     @staticmethod

@@ -1,4 +1,7 @@
-{   "path_to_ssh": "/nfs/ott/apps/admin/run_me_first.sh",
+{
+    "path_to_ssh": "/nfs/ott/apps/admin/run_me_first.sh",
+    "overwatch_url": "http://ott.overwatch.ansys.com",
+    "overwatch_api_url": "http://ottbackend.overwatch.ansys.com:8080",
     "user_project_path_root": "/lus01",
     "vnc_nodes": [
         "ottvnc"
