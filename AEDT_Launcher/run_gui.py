@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.0.0"
+__version__ = "v3.0.1"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -80,7 +80,7 @@ for queue_val in queue_dict.values():
 
 # list to keep information about running jobs
 qstat_list = []
-log_dict = {"pid": 0,
+log_dict = {"pid": "0",
             "msg": "None",
             "scheduler": False}
 
@@ -606,10 +606,10 @@ class LauncherWindow(GUIFrame):
         :param _unused_event: not used
         :return: None
         """
-        scheduler = log_dict["scheduler"]
+        scheduler = log_dict.get("scheduler", True)
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         message = wordwrap(log_dict["msg"], 600, wx.ClientDC(self))
-        data = [timestamp, log_dict["pid"], message, scheduler]
+        data = [timestamp, log_dict.get("pid", "0"), message, scheduler]
 
         if scheduler or self.m_checkBox_allmsg.Value:
             tab_data = data[0:3]
@@ -742,15 +742,21 @@ class LauncherWindow(GUIFrame):
             aedt_str = " ".join([os.path.join(aedt_path, "ansysedt"), "-machinelist", f"num={total_cores}"])
             command += ["--wrap", f'"{aedt_str}"']
             command = " ".join(command)  # convert to string to avoid escaping characters
-            res = subprocess.check_output(command, shell=True)
+            try:
+                output = subprocess.check_output(
+                    command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
+            except subprocess.CalledProcessError as exc:
+                msg = exc.output
+                log_dict["scheduler"] = True
+            else:
+                msg = f"Job submitted to {queue} on {scheduler}\nSubmit Command:{command}"
+                pid = output.strip()
+                log_dict["scheduler"] = False
+                log_dict["pid"] = pid
+                self.log_data["PID List"].append(pid)
 
-            pid = res.decode().strip()
-            msg = f"Job submitted to {queue} on {scheduler}\nSubmit Command:{command}"
-            log_dict["pid"] = pid
             log_dict["msg"] = msg
-            log_dict["scheduler"] = False
             self.add_log_entry()
-            self.log_data["PID List"].append(pid)
 
         else:
             # if reservation:
