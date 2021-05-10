@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.0.1"
+__version__ = "v3.0.2"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -871,7 +871,7 @@ class LauncherWindow(GUIFrame):
 
         # set proper IP address for MPI
         commands.append(["-RegistryKey", 'Desktop/Settings/ProjectOptions/AnsysEMPreferredSubnetAddress',
-                         "-RegistryValue", "10.105.232.0/22"])
+                         "-RegistryValue", "10.105.240.0/22"])
 
         # set project folder
         commands.append(["-RegistryKey", 'Desktop/ProjectDirectory', "-RegistryValue", self.path_textbox.Value])
