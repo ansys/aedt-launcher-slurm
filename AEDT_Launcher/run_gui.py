@@ -750,7 +750,7 @@ class LauncherWindow(GUIFrame):
                 log_dict["scheduler"] = True
             else:
                 msg = f"Job submitted to {queue} on {scheduler}\nSubmit Command:{command}"
-                pid = output.strip()
+                pid = output.strip().split()[-1]
                 log_dict["scheduler"] = False
                 log_dict["pid"] = pid
                 self.log_data["PID List"].append(pid)
