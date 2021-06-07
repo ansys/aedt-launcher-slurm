@@ -1,5 +1,5 @@
 # IMPORTANT usage note:
-# place sge_settings.areg at the same folder where script is located
+# place slurm_settings.areg at the same folder where script is located
 # modify cluster_configuration.json according to cluster configuration and builds available
 
 import errno
@@ -7,6 +7,7 @@ import getpass
 import json
 import os
 import re
+import requests
 import shutil
 import signal
 import socket
@@ -14,7 +15,6 @@ import subprocess
 import sys
 import threading
 import time
-import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from datetime import datetime
 
@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v2.5"
+__version__ = "v3.0.3"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -49,19 +49,18 @@ except json.decoder.JSONDecodeError:
 
 try:
     path_to_ssh = cluster_config["path_to_ssh"]
-    overwatch_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "overwatch.jar")
+    overwatch_url = cluster_config["overwatch_url"]
+    overwatch_api_url = cluster_config["overwatch_api_url"]
 
     # dictionary for the versions
     default_version = cluster_config["default_version"]
     install_dir = cluster_config["install_dir"]
 
     # define default number of cores for the selected PE (interactive mode)
-    pe_cores = cluster_config["pe_cores"]
-    node_config_dict = cluster_config["node_config_dict"]
+    queue_config_dict = cluster_config["queue_config_dict"]
 
     # dictionary in which we will pop up dynamically information about the load from the OverWatch
     # this dictionary also serves to define parallel environments for each queue
-    queue_dict = cluster_config["queue_dict"]
     default_queue = cluster_config["default_queue"]
 
     project_path = cluster_config["user_project_path_root"]
@@ -71,6 +70,7 @@ except KeyError as key_e:
     sys.exit()
 
 # create keys for usage statistics that would be updated later
+queue_dict = {name: {} for name in queue_config_dict}
 for queue_val in queue_dict.values():
     queue_val["total_cores"] = 100
     queue_val["avail_cores"] = 0
@@ -80,7 +80,7 @@ for queue_val in queue_dict.values():
 
 # list to keep information about running jobs
 qstat_list = []
-log_dict = {"pid": 0,
+log_dict = {"pid": "0",
             "msg": "None",
             "scheduler": False}
 
@@ -145,111 +145,103 @@ class ClusterLoadUpdateThread(threading.Thread):
         counter = 120
         while self._parent.running:
             if counter % 120 == 0:
-                xml_file = os.path.join(self._parent.user_dir, '.aedt', "data.xml")
-                command = "java -jar {} -exportClusterSummaryXmlPath {} >& /dev/null".format(overwatch_file, xml_file)
-                subprocess.call(command, shell=True)
-                with open(xml_file, "r") as file:
-                    data = file.read()
-                q_statistics = ET.fromstring(data)
-
-                for queue_elem in q_statistics.findall("Queues/Queue"):
-                    queue_name = queue_elem.get("name")
-                    if queue_name in queue_dict:
-                        total_cores = 0
-                        used_cores = 0
-                        reserved_cores = 0
-                        failed_cores = 0
-                        for host in queue_elem.findall("Hosts/Host"):
-                            total = host.find("Slots/Total").text
-                            total_cores += int(total)
-
-                            if host.find("State").text in ["E", "d", "D", "s", "S", "u", "au"]:
-                                failed_cores += int(total)
-                            elif int(host.find("Slots/Reserved").text) > 0:
-                                reserved_cores += int(total)
-                            elif host.find("Exclusive").text == "true":
-                                used_cores += int(total)
-                            else:
-                                used_cores += int(host.find("Slots/Used").text)
-
-                        available_cores = total_cores - failed_cores - reserved_cores - used_cores
-
-                        queue_dict[queue_name]["total_cores"] = total_cores
-                        queue_dict[queue_name]["used_cores"] = used_cores
-                        queue_dict[queue_name]["failed_cores"] = failed_cores
-                        queue_dict[queue_name]["reserved_cores"] = reserved_cores
-                        queue_dict[queue_name]["avail_cores"] = available_cores
-
-                evt = SignalEvent(my_SIGNAL_EVT, -1)
-                wx.PostEvent(self._parent, evt)
+                try:
+                    self.parse_cluster_load()
+                except (requests.exceptions.BaseHTTPError, requests.exceptions.RequestException):
+                    print("Cannot reach OverWatch server")
+                except KeyError:
+                    print("Cannot parse OverWatch data. Probably Service is down.")
 
                 counter = 0
 
-            """Update a list of jobs status for a user every 5s"""
-
             if counter % 10 == 0:
-                qstat_list.clear()
-                qstat_output = subprocess.check_output(self._parent.qstat, shell=True).decode("ascii", errors="ignore")
-
-                exclude = ['VNC Deskto', 'DCV Deskto', ""]
-                for i, line in enumerate(qstat_output.split("\n")[2:]):
-                    pid = line[0:10].strip()
-                    # prior = line[11:18].strip()
-                    name = line[19:30].strip()
-                    user = line[30:42].strip()
-                    state = line[43:48].strip()
-                    started = line[49:68].strip()
-                    queue_data = line[69:99].strip()
-                    # jclass = line[100:128].strip()
-                    proc = line[129:148].strip()
-
-                    if name not in exclude:
-                        qstat_list.append({
-                            "pid": pid,
-                            "state": state,
-                            "name": name,
-                            "user": user,
-                            "queue_data": queue_data,
-                            "proc": proc,
-                            "started": started
-                        })
-
-                evt = SignalEvent(NEW_SIGNAL_EVT_QSTAT, -1)
-                wx.PostEvent(self._parent, evt)
-
-                # get message texts
-                for pid in self._parent.log_data["PID List"]:
-                    o_file = os.path.join(self._parent.user_dir, 'ansysedt.o' + pid)
-                    if os.path.exists(o_file):
-                        output_text = ''
-                        with open(o_file, 'r') as file:
-                            for msgline in file:
-                                output_text += msgline
-                            if output_text != '':
-                                log_dict["pid"] = pid
-                                log_dict["msg"] = 'Submit Message: ' + output_text
-                                log_dict["scheduler"] = True
-                                evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
-                                wx.PostEvent(self._parent, evt)
-                        os.remove(o_file)
-
-                    e_file = os.path.join(self._parent.user_dir, 'ansysedt.e' + pid)
-                    if os.path.exists(e_file):
-                        error_text = ''
-                        with open(e_file, 'r') as file:
-                            for msgline in file:
-                                error_text += msgline
-                            if error_text != '':
-                                log_dict["pid"] = pid
-                                log_dict["msg"] = 'Submit Error: ' + error_text
-                                log_dict["scheduler"] = True
-                                evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
-                                wx.PostEvent(self._parent, evt)
-
-                        os.remove(e_file)
+                self.parse_user_jobs()
 
             time.sleep(0.5)
             counter += 1
+
+    def parse_user_jobs(self):
+        qstat_list.clear()
+        slurm_stat_output = subprocess.check_output(self._parent.squeue, shell=True)
+        slurm_stat_output = slurm_stat_output.decode("ascii", errors="ignore")
+        exclude = cluster_config["vnc_nodes"] + cluster_config["dcv_nodes"]
+        for i, line in enumerate(slurm_stat_output.split("\n")[1:]):
+            pid = line[0:18].strip()
+            partition = line[19:28].strip()
+            job_name = line[29:38].strip()
+            user = line[38:47].strip()
+            state = line[48:49].strip()
+            num_cpu = line[50:54].strip()
+            started = line[54:75].strip()
+            node_list = line[76:].strip()
+
+            for node in exclude:
+                if node in node_list:
+                    break
+            else:
+                # it is neither VNC nor DCV job
+                qstat_list.append({
+                    "pid": pid,
+                    "state": state,
+                    "name": job_name,
+                    "user": user,
+                    "queue_data": node_list,
+                    "proc": num_cpu,
+                    "started": started
+                })
+        evt = SignalEvent(NEW_SIGNAL_EVT_QSTAT, -1)
+        wx.PostEvent(self._parent, evt)
+        # get message texts
+        for pid in self._parent.log_data["PID List"]:
+            o_file = os.path.join(self._parent.user_dir, 'ansysedt.o' + pid)
+            if os.path.exists(o_file):
+                output_text = ''
+                with open(o_file, 'r') as file:
+                    for msgline in file:
+                        output_text += msgline
+                    if output_text != '':
+                        log_dict["pid"] = pid
+                        log_dict["msg"] = 'Submit Message: ' + output_text
+                        log_dict["scheduler"] = True
+                        evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
+                        wx.PostEvent(self._parent, evt)
+                os.remove(o_file)
+
+            e_file = os.path.join(self._parent.user_dir, 'ansysedt.e' + pid)
+            if os.path.exists(e_file):
+                error_text = ''
+                with open(e_file, 'r') as file:
+                    for msgline in file:
+                        error_text += msgline
+                    if error_text != '':
+                        log_dict["pid"] = pid
+                        log_dict["msg"] = 'Submit Error: ' + error_text
+                        log_dict["scheduler"] = True
+                        evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
+                        wx.PostEvent(self._parent, evt)
+
+                os.remove(e_file)
+
+    def parse_cluster_load(self):
+        """
+        Function that parses data from Overwatch and generates dictionary with cluster load for each queue
+        Returns:
+
+        """
+        # with requests.get(overwatch_url, params={"cluster": "ott"}) as url_req:  # could be used with params
+        with requests.get(f"{overwatch_api_url}/api/v1/overwatch/minclusterstatus") as url_req:
+            cluster_data = url_req.json()
+
+        for queue_elem in cluster_data["Queues"]:
+            queue_name = queue_elem["name"]
+            if queue_name in queue_dict:
+                queue_dict[queue_name]["total_cores"] = queue_elem["totalSlots"]
+                queue_dict[queue_name]["used_cores"] = queue_elem["totalUsedSlots"]
+                queue_dict[queue_name]["failed_cores"] = queue_elem["totalUnavailableSlots"]
+                queue_dict[queue_name]["reserved_cores"] = queue_elem["totalReservedSlots"]
+                queue_dict[queue_name]["avail_cores"] = queue_elem["totalAvailableSlots"]
+        evt = SignalEvent(my_SIGNAL_EVT, -1)
+        wx.PostEvent(self._parent, evt)
 
 
 class LauncherWindow(GUIFrame):
@@ -257,13 +249,14 @@ class LauncherWindow(GUIFrame):
         global default_queue
         # Initialize the main form
         GUIFrame.__init__(self, parent)
+        GUIFrame.SetTitle(self, f"Ansys Electronics Desktop Launcher {__version__}")
 
         # Get environment data
         self.user_dir = os.path.expanduser('~')
         self.username = getpass.getuser()
         self.hostname = socket.gethostname()
         self.display_node = os.getenv('DISPLAY')
-        self.qstat = "qstat"
+        self.squeue = 'squeue --me --format "%.18i %.9P %.8j %.8u %.2t %.4C %.20V %R"'
 
         # get paths
         self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
@@ -312,18 +305,11 @@ class LauncherWindow(GUIFrame):
                     raise
 
         # Set the status bars on the bottom of the window
-        self.m_statusBar1.SetStatusText('User: ' + self.username + ' on ' + viz_type + ' node ' + self.display_node, 0)
-        self.m_statusBar1.SetStatusText(msg, 1)
-        self.m_statusBar1.SetStatusWidths([500, -1])
+        self.m_status_bar.SetStatusText('User: ' + self.username + ' on ' + viz_type + ' node ' + self.display_node, 0)
+        self.m_status_bar.SetStatusText(msg, 1)
+        self.m_status_bar.SetStatusWidths([500, -1])
 
         init_combobox(install_dir.keys(), self.m_select_version1, default_version)
-
-        # create a list of default environmental variables
-        self.interactive_env = ",".join(["DISPLAY=" + self.display_node, "ANS_NODEPCHECK=1"])
-
-        self.advanced_options_text.Value = self.interactive_env
-
-        self.local_env = "ANS_NODEPCHECK=1"
 
         # Setup Process Log
         self.scheduler_msg_viewlist.AppendTextColumn('Timestamp', width=140)
@@ -388,32 +374,20 @@ class LauncherWindow(GUIFrame):
 
         self.select_mode()
         self.m_notebook2.ChangeSelection(0)
-        self.advanced_options_text.Hide()  # hide on start since hidden attribute is not working in wxBuilder
         self.read_custom_builds()
 
         # populate UI with default or pre-saved settings
-        parallel_env = None
         if os.path.isfile(self.default_settings_json):
             try:
-                self.set_user_settings()
+                self.settings_load()
                 default_queue = self.default_settings["queue"]
-                parallel_env = self.default_settings["parallel_env"]
             except KeyError:
                 add_message("Settings file was corrupted", "Settings file", "!")
 
-        # check that DISPLAY was overwritten if VNC node was changed
-        if self.display_node not in self.advanced_options_text.Value:
-            advanced_list = self.advanced_options_text.Value.split(",")
-            for index, variable in enumerate(advanced_list):
-                if "DISPLAY" in variable:
-                    advanced_list[index] = "DISPLAY=" + self.display_node
-                    break
-
-            self.advanced_options_text.Value = ",".join(advanced_list)
-
         init_combobox(queue_dict.keys(), self.queue_dropmenu, default_queue)
-        self.select_queue(None, parallel_env)  # if we read from a file then keep saved PE
+        self.select_queue()
 
+        self.evt_node_list_check()
         self.on_reserve_check()
 
         # run in parallel to UI regular update of chart and process list
@@ -472,19 +446,20 @@ class LauncherWindow(GUIFrame):
         with open(self.user_build_json, "w") as file:
             json.dump(self.builds_data, file, indent=4)
 
-    def save_user_settings(self, _unused_event):
+    def settings_save(self, _unused_event):
         """
             Take all values from the UI and dump them to the .json file
         """
         self.default_settings = {
+            "version": __version__,
             "mode": self.submit_mode_radiobox.Selection,
             "queue": self.queue_dropmenu.GetValue(),
-            "parallel_env": self.pe_dropmenu.GetValue(),
+            "allocation": self.m_alloc_dropmenu.GetValue(),
             "num_cores": self.m_numcore.Value,
-            # "exclusive": self.exclusive_usage_checkbox.Value,
             "aedt_version": self.m_select_version1.Value,
             "env_var": self.env_var_text.Value,
-            "advanced": self.advanced_options_text.Value,
+            "use_node_list": self.m_nodes_list_checkbox.Value,
+            "node_list": self.m_nodes_list.Value,
             "project_path": self.path_textbox.Value,
             "use_reservation": self.reserved_checkbox.Value,
             "reservation_id": self.reservation_id_text.Value
@@ -493,7 +468,7 @@ class LauncherWindow(GUIFrame):
         with open(self.default_settings_json, "w") as file:
             json.dump(self.default_settings, file, indent=4)
 
-    def set_user_settings(self):
+    def settings_load(self):
         """
             Read settings file and populate UI with values
         """
@@ -501,26 +476,41 @@ class LauncherWindow(GUIFrame):
             self.default_settings = json.load(file)
 
         try:
+            # todo add allocation
             self.submit_mode_radiobox.Selection = self.default_settings["mode"]
             self.queue_dropmenu.Value = self.default_settings["queue"]
-            self.pe_dropmenu.Value = self.default_settings["parallel_env"]
             self.m_numcore.Value = self.default_settings["num_cores"]
-            # self.exclusive_usage_checkbox.Value = self.default_settings["exclusive"]
             self.m_select_version1.Value = self.default_settings["aedt_version"]
             self.env_var_text.Value = self.default_settings["env_var"]
-            self.advanced_options_text.Value = self.default_settings["advanced"]
+
+            self.m_nodes_list.Value = self.default_settings.get("node_list", "")
+            self.m_nodes_list_checkbox.Value = self.default_settings.get("use_node_list", False)
+
             self.path_textbox.Value = self.default_settings["project_path"]
 
             self.reserved_checkbox.Value = self.default_settings["use_reservation"]
             self.reservation_id_text.Value = self.default_settings["reservation_id"]
 
             queue_value = self.queue_dropmenu.GetValue()
-            self.m_node_label.LabelText = node_config_dict[queue_value]
+            self.m_node_label.LabelText = self.construct_node_specs_str(queue_value)
         except wx._core.wxAssertionError:
             add_message("UI was updated or default settings file was corrupted. Please save default settings again",
                         "", "i")
 
-    def reset_settings(self, _unused_event):
+    @staticmethod
+    def construct_node_specs_str(queue):
+        """
+        Construct node description string from cluster configuration data
+        Args:
+            queue: queue for which we need a node description
+
+        Returns (str): string for the UI with number of cores and RAM per node
+
+        """
+        node_str = f"({queue_config_dict[queue]['cores']} Cores, {queue_config_dict[queue]['ram']}GB RAM per node)"
+        return node_str
+
+    def settings_reset(self, _unused_event):
         """
             Fired on click to reset to factory. Will remove settings previously set by user
         """
@@ -531,11 +521,37 @@ class LauncherWindow(GUIFrame):
     def timer_stop(self):
         self.running = False
 
-    def select_pe(self, _unused=None):
-        """ Callback for the selection of parallel environment. Primarily used to set an appropriate number of cores"""
-        pe_val = self.pe_dropmenu.Value
-        core_val = pe_cores[pe_val]
-        self.m_numcore.Value = str(core_val)
+    def evt_num_cores_nodes_change(self, _unused=None):
+        try:
+            num_cores_or_nodes = int(self.m_numcore.Value)
+        except ValueError:
+            # todo add status message
+            return
+
+        if num_cores_or_nodes < 1:
+            self.m_numcore.Value = str(1)
+            return
+
+        cores_per_node = queue_config_dict[self.queue_dropmenu.Value]["cores"]
+        ram_per_node = queue_config_dict[self.queue_dropmenu.Value]["ram"]
+        if self.m_alloc_dropmenu.GetCurrentSelection() == 0:
+            if num_cores_or_nodes > cores_per_node:
+                self.m_numcore.Value = str(cores_per_node)
+                # todo add status message
+            summary_msg = f"You request {self.m_numcore.Value} Cores and {ram_per_node}GB of shared RAM"
+        else:
+            total_cores = cores_per_node * num_cores_or_nodes
+            total_ram = ram_per_node * num_cores_or_nodes
+            summary_msg = f"You request {total_cores} Cores and {total_ram}GB RAM"
+
+        self.m_summary_caption.LabelText = summary_msg
+
+    def evt_select_allocation(self, _unused=None):
+        """ Callback when user changes allocation strategy"""
+        if self.m_alloc_dropmenu.GetCurrentSelection() == 0:
+            self.m_num_cores_caption.LabelText = "# Cores"
+        else:
+            self.m_num_cores_caption.LabelText = "# Nodes"
 
     def select_mode(self, _unused_event=None):
         """
@@ -545,16 +561,19 @@ class LauncherWindow(GUIFrame):
         sel = self.submit_mode_radiobox.Selection
         if sel == 0:
             enable = False
-            self.advanced_options_text.Value = self.local_env
+            self.m_nodes_list_checkbox.Value = False
         else:
             enable = True
-            self.advanced_options_text.Value = self.interactive_env
 
         self.queue_dropmenu.Enabled = enable
         self.m_numcore.Enabled = enable
-        # self.exclusive_usage_checkbox.Enabled = enable
         self.m_node_label.Enabled = enable
-        self.pe_dropmenu.Enable(enable)
+
+        self.m_nodes_list_checkbox.Enabled = enable
+        self.m_nodes_list.Enabled = enable
+        # self.m_alloc_dropmenu.Enable(enable)  # todo enable if Slurm will support non-exclusive
+        self.evt_select_allocation()
+        self.evt_num_cores_nodes_change()
 
     def update_job_status(self, _unused_event):
         """
@@ -587,10 +606,10 @@ class LauncherWindow(GUIFrame):
         :param _unused_event: not used
         :return: None
         """
-        scheduler = log_dict["scheduler"]
+        scheduler = log_dict.get("scheduler", True)
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         message = wordwrap(log_dict["msg"], 600, wx.ClientDC(self))
-        data = [timestamp, log_dict["pid"], message, scheduler]
+        data = [timestamp, log_dict.get("pid", "0"), message, scheduler]
 
         if scheduler or self.m_checkBox_allmsg.Value:
             tab_data = data[0:3]
@@ -610,11 +629,13 @@ class LauncherWindow(GUIFrame):
         """On double click on process row will propose to abort running job"""
         row = self.qstat_viewlist.GetSelectedRow()
         pid = self.qstat_viewlist.GetTextValue(row, 0)
+        queue = self.qstat_viewlist.GetTextValue(row, 4)
 
         result = add_message("Abort Queue Process {}?\n".format(pid), "Confirm Abort", "?")
 
         if result == wx.ID_OK:
-            subprocess.call('qdel {}'.format(pid), shell=True)
+            subprocess.call('scancel {}'.format(pid), shell=True)
+
             msg = "Job {} cancelled from GUI".format(pid)
             try:
                 self.log_data["PID List"].remove(pid)
@@ -626,40 +647,27 @@ class LauncherWindow(GUIFrame):
             log_dict["scheduler"] = False
             self.add_log_entry()
 
-    def select_queue(self, _unused_event, parallel_env=None):
+    def select_queue(self, _unused_event=None):
         """
         Called when user selects a value in Queue drop down menu (or during __init__ to fill the UI).
         Sets PE and number of cores for each queue
-        :param parallel_env: PE that should be used, set when call from __init__
         :param _unused_event: default event of UI component
         :return: None
         """
         queue_value = self.queue_dropmenu.GetValue()
 
-        if not parallel_env:
-            # choose  default PE and set default number of cores
-            parallel_env = queue_dict[queue_value]["default_pe"]
-            set_cores = True
-        else:
-            set_cores = False
+        self.m_node_label.LabelText = self.construct_node_specs_str(queue_value)
+        self.evt_num_cores_nodes_change()
 
-        init_combobox(queue_dict[queue_value]["parallel_env"], self.pe_dropmenu, parallel_env)
-
-        if set_cores:
-            self.select_pe()
-
-        node_description = node_config_dict[queue_value]
-        self.m_node_label.LabelText = node_description
-
-    def on_advanced_check(self, _unused_event):
+    def evt_node_list_check(self, _unused_event=None):
         """
-            callback called when clicked Advanced options.
-            Hides/Shows input field for environment variables
+            callback called when clicked "Specify node list" options.
+            Hides/Shows input field for node list
         """
-        if self.advanced_checkbox.Value:
-            self.advanced_options_text.Show()
+        if self.m_nodes_list_checkbox.Value:
+            self.m_nodes_list.Show()
         else:
-            self.advanced_options_text.Hide()
+            self.m_nodes_list.Hide()
 
     def on_reserve_check(self, _unused_event=None):
         """
@@ -680,14 +688,14 @@ class LauncherWindow(GUIFrame):
         check_ssh()
 
         # Scheduler data
-        scheduler = 'qsub'
+        scheduler = 'sbatch'
         queue = self.queue_dropmenu.Value
-        penv = self.pe_dropmenu.Value
-        num_cores = self.m_numcore.Value
+        allocation_rule = self.m_alloc_dropmenu.GetCurrentSelection()
+        num_nodes = num_cores = int(self.m_numcore.Value)
         aedt_version = self.m_select_version1.Value
         aedt_path = install_dir[aedt_version]
 
-        env = self.advanced_options_text.Value
+        env = "ALL,ANS_NODEPCHECK=1"
         if self.env_var_text.Value:
             env += "," + self.env_var_text.Value
 
@@ -698,7 +706,7 @@ class LauncherWindow(GUIFrame):
             env = env.rstrip(",").lstrip(",")
 
         try:
-            self.set_registry(aedt_path)
+            self.update_registry(aedt_path)
         except FileNotFoundError:
             add_message("Verify project directory. Probably user name was changed", "Wrong project path", "!")
             return
@@ -714,39 +722,49 @@ class LauncherWindow(GUIFrame):
             print("Error sending statistics")
 
         if op_mode == 1:
-            command = [scheduler, "-q", queue, "-pe", penv, num_cores]
+            command = [scheduler, "--job-name", "aedt", "--partition", queue, "--export", env]
 
-            # if self.exclusive_usage_checkbox.Value:
-            #     command += ["-l", "exclusive"]
+            if allocation_rule == 0:
+                # 1 node and cores
+                command += ["--nodes", "1-1", "--ntasks", str(num_cores)]
+                total_cores = num_cores
+            else:
+                cores_per_node = queue_config_dict[queue]["cores"]
+                total_cores = cores_per_node * num_nodes
+                command += ["--nodes", f"{num_nodes}-{num_nodes}", "--ntasks", str(total_cores)]
 
-            # Interactive mode
-            command += ["-terse", "-v", env, "-b", "yes"]
+            if self.m_nodes_list_checkbox.Value and self.m_nodes_list.Value:
+                command += ["--nodelist", self.m_nodes_list.Value]
 
-            # insert job ID if provided. Should be always as first argument of qsub
             if reservation:
-                if reservation_id:
-                    command[1:1] = ["-ar", reservation_id]
-                else:
-                    return
+                command += ["--reservation", reservation_id]
 
-            command += [os.path.join(aedt_path, "ansysedt"), "-machinelist", "num="+num_cores]
+            aedt_str = " ".join([os.path.join(aedt_path, "ansysedt"), "-machinelist", f"num={total_cores}"])
+            command += ["--wrap", f'"{aedt_str}"']
+            command = " ".join(command)  # convert to string to avoid escaping characters
+            try:
+                output = subprocess.check_output(
+                    command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
+            except subprocess.CalledProcessError as exc:
+                msg = exc.output
+                log_dict["scheduler"] = True
+            else:
+                msg = f"Job submitted to {queue} on {scheduler}\nSubmit Command:{command}"
+                pid = output.strip().split()[-1]
+                log_dict["scheduler"] = False
+                log_dict["pid"] = pid
+                self.log_data["PID List"].append(pid)
 
-            res = subprocess.check_output(command, shell=False)
-            pid = res.decode().strip()
-            msg = f"Job submitted to {queue} on {scheduler}\nSubmit Command:{' '.join(command)}"
-            log_dict["pid"] = pid
             log_dict["msg"] = msg
-            log_dict["scheduler"] = False
             self.add_log_entry()
-            self.log_data["PID List"].append(pid)
 
         else:
-            if reservation:
-                if reservation_id:
-                    with open(self.sge_request_file, "w") as file:
-                        file.write(f"-ar {reservation_id}")
-                else:
-                    return
+            # if reservation:
+            #     if reservation_id:
+            #         with open(self.sge_request_file, "w") as file:  # todo update for slurm
+            #             file.write(f"-ar {reservation_id}")
+            #     else:
+            #         return
 
             threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env,)).start()
 
@@ -818,7 +836,7 @@ class LauncherWindow(GUIFrame):
 
         client.write_points(json_body)
 
-    def set_registry(self, aedt_path):
+    def update_registry(self, aedt_path):
         """
         Function to set registry for each run of EDT since each run is happening on different Linux node.
         Disables:
@@ -829,7 +847,7 @@ class LauncherWindow(GUIFrame):
 
         Sets:
         1. EDT Installation path
-        2. SGE scheduler as default
+        2. Slurm scheduler as default
 
         :param aedt_path: path to the installation directory of EDT
         :return: None
@@ -851,6 +869,10 @@ class LauncherWindow(GUIFrame):
         # set installation path
         commands.append(["-RegistryKey", 'Desktop/InstallationDirectory', "-RegistryValue", aedt_path])
 
+        # set proper IP address for MPI
+        commands.append(["-RegistryKey", 'Desktop/Settings/ProjectOptions/AnsysEMPreferredSubnetAddress',
+                         "-RegistryValue", "10.105.240.0/22"])
+
         # set project folder
         commands.append(["-RegistryKey", 'Desktop/ProjectDirectory', "-RegistryValue", self.path_textbox.Value])
 
@@ -861,9 +883,9 @@ class LauncherWindow(GUIFrame):
         personal_lib = os.path.join(os.environ["HOME"], "Ansoft", "Personallib")
         commands.append(["-RegistryKey", 'Desktop/PersonalLib', "-RegistryValue", personal_lib])
 
-        # set SGE scheduler
-        path_sge_settings = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sge_settings.areg")
-        commands.append(["-FromFile", path_sge_settings])
+        # set Slurm scheduler
+        settings_areg = os.path.join(os.path.dirname(os.path.realpath(__file__)), "slurm_settings.areg")
+        commands.append(["-FromFile", settings_areg])
 
         for command in commands:
             subprocess.call(command_base + command)
@@ -946,7 +968,7 @@ class LauncherWindow(GUIFrame):
 
     def open_overwatch(self):
         """ Open Overwatch with java """
-        command = ["java", "-jar", overwatch_file, ">& /dev/null"]
+        command = ["/bin/firefox", f"{overwatch_url}/users/{self.username}"]
         subprocess.call(command)
 
     @staticmethod
