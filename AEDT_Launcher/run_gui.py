@@ -869,10 +869,6 @@ class LauncherWindow(GUIFrame):
         # set installation path
         commands.append(["-RegistryKey", 'Desktop/InstallationDirectory', "-RegistryValue", aedt_path])
 
-        # set proper IP address for MPI
-        commands.append(["-RegistryKey", 'Desktop/Settings/ProjectOptions/AnsysEMPreferredSubnetAddress',
-                         "-RegistryValue", "10.105.240.0/22"])
-
         # set project folder
         commands.append(["-RegistryKey", 'Desktop/ProjectDirectory', "-RegistryValue", self.path_textbox.Value])
 
