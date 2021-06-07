@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ###########################################################################
-## Python code generated with wxFormBuilder (version 3.9.0 Feb 17 2020)
+## Python code generated with wxFormBuilder (version Oct 26 2018)
 ## http://www.wxformbuilder.org/
 ##
 ## PLEASE DO *NOT* EDIT THIS FILE!
@@ -36,16 +36,6 @@ class GUIFrame ( wx.Frame ):
 		self.m_panel2.SetMinSize( wx.Size( 400,-1 ) )
 
 		bSizer1 = wx.BoxSizer( wx.VERTICAL )
-
-		self.title_caption = wx.StaticText( self.m_panel2, wx.ID_ANY, u"AEDT Launcher", wx.DefaultPosition, wx.DefaultSize, 0 )
-		self.title_caption.Wrap( -1 )
-
-		self.title_caption.SetFont( wx.Font( 14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
-
-		bSizer1.Add( self.title_caption, 0, wx.ALL, 5 )
-
-		self.m_staticline1 = wx.StaticLine( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL )
-		bSizer1.Add( self.m_staticline1, 0, wx.EXPAND |wx.ALL, 5 )
 
 		bSizer14 = wx.BoxSizer( wx.HORIZONTAL )
 
@@ -82,35 +72,36 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.m_staticText12 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Parallel Env.", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
+		self.m_staticText12 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Allocation", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
 		self.m_staticText12.Wrap( -1 )
 
 		self.m_staticText12.SetMinSize( wx.Size( 100,-1 ) )
 
 		PESizer.Add( self.m_staticText12, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
-		pe_dropmenuChoices = []
-		self.pe_dropmenu = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, pe_dropmenuChoices, wx.CB_READONLY )
-		self.pe_dropmenu.SetSelection( 0 )
-		self.pe_dropmenu.SetMinSize( wx.Size( 150,-1 ) )
+		m_alloc_dropmenuChoices = [ u"1 Node and Cores", u"Multiple Nodes" ]
+		self.m_alloc_dropmenu = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, m_alloc_dropmenuChoices, wx.CB_READONLY )
+		self.m_alloc_dropmenu.SetSelection( 1 )
+		self.m_alloc_dropmenu.Enable( False )
+		self.m_alloc_dropmenu.SetMinSize( wx.Size( 150,-1 ) )
 
-		PESizer.Add( self.pe_dropmenu, 0, wx.ALL, 5 )
+		PESizer.Add( self.m_alloc_dropmenu, 0, wx.ALL, 5 )
 
 
 		bSizer7.Add( PESizer, 0, wx.ALL, 5 )
 
 		CoreSizer = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.m_staticText122 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Num. Cores", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
-		self.m_staticText122.Wrap( -1 )
+		self.m_num_cores_caption = wx.StaticText( self.m_panel2, wx.ID_ANY, u"# Cores", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
+		self.m_num_cores_caption.Wrap( -1 )
 
-		self.m_staticText122.SetMinSize( wx.Size( 100,-1 ) )
+		self.m_num_cores_caption.SetMinSize( wx.Size( 100,-1 ) )
 
-		CoreSizer.Add( self.m_staticText122, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
+		CoreSizer.Add( self.m_num_cores_caption, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
 		bSizer13 = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.m_numcore = wx.TextCtrl( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_numcore = wx.TextCtrl( self.m_panel2, wx.ID_ANY, u"1", wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.m_numcore.SetMinSize( wx.Size( 50,-1 ) )
 
 		bSizer13.Add( self.m_numcore, 0, wx.ALL, 5 )
@@ -125,6 +116,11 @@ class GUIFrame ( wx.Frame ):
 
 
 		bSizer7.Add( CoreSizer, 0, wx.ALL, 5 )
+
+		self.m_summary_caption = wx.StaticText( self.m_panel2, wx.ID_ANY, u"You will get <> Cores and <> RAM", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_summary_caption.Wrap( -1 )
+
+		bSizer7.Add( self.m_summary_caption, 0, wx.ALL, 5 )
 
 		reserved_sizer = wx.BoxSizer( wx.HORIZONTAL )
 
@@ -220,14 +216,14 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer1 = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.advanced_checkbox = wx.CheckBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
-		self.advanced_checkbox.SetFont( wx.Font( wx.NORMAL_FONT.GetPointSize(), wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
-		self.advanced_checkbox.SetMinSize( wx.Size( 20,-1 ) )
-		self.advanced_checkbox.SetMaxSize( wx.Size( 20,-1 ) )
+		self.m_nodes_list_checkbox = wx.CheckBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_nodes_list_checkbox.SetFont( wx.Font( wx.NORMAL_FONT.GetPointSize(), wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
+		self.m_nodes_list_checkbox.SetMinSize( wx.Size( 20,-1 ) )
+		self.m_nodes_list_checkbox.SetMaxSize( wx.Size( 20,-1 ) )
 
-		PESizer1.Add( self.advanced_checkbox, 0, wx.ALL, 5 )
+		PESizer1.Add( self.m_nodes_list_checkbox, 0, wx.ALL, 5 )
 
-		self.m_staticText12111 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Modify advanced options", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
+		self.m_staticText12111 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Specify Nodes", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
 		self.m_staticText12111.Wrap( 1 )
 
 		self.m_staticText12111.SetMinSize( wx.Size( 64,-1 ) )
@@ -235,11 +231,12 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer1.Add( self.m_staticText12111, 0, wx.ALL, 5 )
 
-		self.advanced_options_text = wx.TextCtrl( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
-		self.advanced_options_text.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
-		self.advanced_options_text.SetMinSize( wx.Size( 500,65 ) )
+		self.m_nodes_list = wx.TextCtrl( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
+		self.m_nodes_list.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
+		self.m_nodes_list.SetToolTip( u"The list may be specified as a comma-separated list of hosts (ottc01sn019,ottc01sn020), or a range of hosts (ottc01sn[019-022,27])" )
+		self.m_nodes_list.SetMinSize( wx.Size( 500,65 ) )
 
-		PESizer1.Add( self.advanced_options_text, 0, wx.ALIGN_TOP|wx.ALL, 5 )
+		PESizer1.Add( self.m_nodes_list, 0, wx.ALIGN_TOP|wx.ALL, 5 )
 
 
 		bSizer71.Add( PESizer1, 1, wx.ALL, 5 )
@@ -285,7 +282,7 @@ class GUIFrame ( wx.Frame ):
 		self.load_grid.SetDefaultCellAlignment( wx.ALIGN_CENTER, wx.ALIGN_TOP )
 		bSizer1411.Add( self.load_grid, 0, wx.ALL, 5 )
 
-		self.overwatch_button = wx.Button( self.m_panel2, wx.ID_ANY, u"See full statistics in OverWatch", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.overwatch_button = wx.Button( self.m_panel2, wx.ID_ANY, u"Open OverWatch", wx.DefaultPosition, wx.DefaultSize, 0 )
 		bSizer1411.Add( self.overwatch_button, 0, wx.ALL, 5 )
 
 
@@ -295,7 +292,7 @@ class GUIFrame ( wx.Frame ):
 
 		self.qstat_viewlist = wx.dataview.DataViewListCtrl( self.m_panel2, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.qstat_viewlist.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
-		self.qstat_viewlist.SetMinSize( wx.Size( 800,250 ) )
+		self.qstat_viewlist.SetMinSize( wx.Size( 800,160 ) )
 
 		bSizer141.Add( self.qstat_viewlist, 0, wx.ALL, 5 )
 
@@ -429,8 +426,8 @@ class GUIFrame ( wx.Frame ):
 		self.m_grid1.SetDefaultCellAlignment( wx.ALIGN_LEFT, wx.ALIGN_TOP )
 		self.m_mgr.AddPane( self.m_grid1, wx.aui.AuiPaneInfo() .Left() .PinButton( True ).Hide().Dock().Resizable().FloatingSize( wx.DefaultSize ) )
 
-		self.m_statusBar1 = self.CreateStatusBar( 2, wx.STB_SIZEGRIP, wx.ID_ANY )
-		self.m_statusBar1.SetMinSize( wx.Size( 180,-1 ) )
+		self.m_status_bar = self.CreateStatusBar( 2, wx.STB_SIZEGRIP, wx.ID_ANY )
+		self.m_status_bar.SetMinSize( wx.Size( 180,-1 ) )
 
 
 		self.m_mgr.Update()
@@ -440,17 +437,18 @@ class GUIFrame ( wx.Frame ):
 		self.Bind( wx.EVT_CLOSE, self.shutdown_app )
 		self.submit_mode_radiobox.Bind( wx.EVT_RADIOBOX, self.select_mode )
 		self.queue_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_queue )
-		self.pe_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_pe )
+		self.m_alloc_dropmenu.Bind( wx.EVT_COMBOBOX, self.evt_select_allocation )
+		self.m_numcore.Bind( wx.EVT_TEXT, self.evt_num_cores_nodes_change )
 		self.reserved_checkbox.Bind( wx.EVT_CHECKBOX, self.on_reserve_check )
 		self.set_path_button.Bind( wx.EVT_BUTTON, self.set_project_path )
 		self.m_button1.Bind( wx.EVT_BUTTON, self.click_launch )
-		self.advanced_checkbox.Bind( wx.EVT_CHECKBOX, self.on_advanced_check )
+		self.m_nodes_list_checkbox.Bind( wx.EVT_CHECKBOX, self.evt_node_list_check )
 		self.overwatch_button.Bind( wx.EVT_BUTTON, self.submit_overwatch_thread )
 		self.qstat_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_ACTIVATED, self.leftclick_processtable, id = wx.ID_ANY )
 		self.m_checkBox_allmsg.Bind( wx.EVT_CHECKBOX, self.m_update_msg_list )
 		self.scheduler_msg_viewlist.Bind( wx.dataview.EVT_DATAVIEW_ITEM_CONTEXT_MENU, self.rmb_on_scheduler_msg_list, id = wx.ID_ANY )
-		self.save_button.Bind( wx.EVT_BUTTON, self.save_user_settings )
-		self.reset_button.Bind( wx.EVT_BUTTON, self.reset_settings )
+		self.save_button.Bind( wx.EVT_BUTTON, self.settings_save )
+		self.reset_button.Bind( wx.EVT_BUTTON, self.settings_reset )
 		self.close_button.Bind( wx.EVT_BUTTON, self.shutdown_app )
 		self.delete_build_button.Bind( wx.EVT_BUTTON, self.delete_row )
 		self.add_build_button.Bind( wx.EVT_BUTTON, self.add_new_build )
@@ -470,7 +468,10 @@ class GUIFrame ( wx.Frame ):
 	def select_queue( self, event ):
 		event.Skip()
 
-	def select_pe( self, event ):
+	def evt_select_allocation( self, event ):
+		event.Skip()
+
+	def evt_num_cores_nodes_change( self, event ):
 		event.Skip()
 
 	def on_reserve_check( self, event ):
@@ -482,7 +483,7 @@ class GUIFrame ( wx.Frame ):
 	def click_launch( self, event ):
 		event.Skip()
 
-	def on_advanced_check( self, event ):
+	def evt_node_list_check( self, event ):
 		event.Skip()
 
 	def submit_overwatch_thread( self, event ):
@@ -497,10 +498,10 @@ class GUIFrame ( wx.Frame ):
 	def rmb_on_scheduler_msg_list( self, event ):
 		event.Skip()
 
-	def save_user_settings( self, event ):
+	def settings_save( self, event ):
 		event.Skip()
 
-	def reset_settings( self, event ):
+	def settings_reset( self, event ):
 		event.Skip()
 
 
