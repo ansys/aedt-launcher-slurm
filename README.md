@@ -1,6 +1,6 @@
 ## Description
 Project aims to create a user friendly interface to submit interactive Electronics Desktop jobs in Linux environment.
-Interactivee job means that the job will be submitted to the compute node using scheduling system (SGE) and will send
+Interactivee job means that the job will be submitted to the compute node using scheduling system (Slurm) and will send
 back Display to VNC session. This will allow user to run heavy projects on powerful machines and interact with design.
 
 ## Configuration
@@ -23,3 +23,8 @@ Environments, RAM/Cores per node in queue, link to the SSH file, AEDT installati
     ~~~
 6. you may need to automatically copy or create shortcut to 
 [launcher_script.desktop](AEDT_Launcher/templates/launcher_script.desktop) for each user
+
+## Contribution
+You are welcome to contribute to current repository.
+You will need to install wxFormBuilder to build/update user interface from [AEDT_Launcher.fbp](AEDT_Launcher/AEDT_Launcher.fbp).  
+We use version [3.9.0](https://github.com/wxFormBuilder/wxFormBuilder/releases/tag/v3.9.0)
