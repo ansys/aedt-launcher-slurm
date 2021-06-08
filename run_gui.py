@@ -25,7 +25,7 @@ import wx.dataview
 
 from influxdb import InfluxDBClient
 
-from src_gui import GUIFrame
+from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
 __version__ = "v3.0.3"
