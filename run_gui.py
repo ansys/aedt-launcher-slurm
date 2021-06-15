@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.0"
+__version__ = "v3.1.1"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -394,6 +394,7 @@ class LauncherWindow(GUIFrame):
         worker = ClusterLoadUpdateThread(self)
         worker.start()
 
+        self.m_nodes_list.Show(True)  # required for proper rendering
         # after UI is loaded run select_mode to process UI correctly, otherwise UI is shifted since sizers do not
         # reserve space for hidden objects
         wx.CallAfter(self.select_mode)
@@ -574,6 +575,8 @@ class LauncherWindow(GUIFrame):
         sel = self.submit_mode_radiobox.Selection
         if sel == 3:
             enable = True
+
+            self.m_nodes_list.Show(self.m_nodes_list_checkbox.Value)  # required for proper rendering
         else:
             enable = False
             self.m_nodes_list_checkbox.Value = False
