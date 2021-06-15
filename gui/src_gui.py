@@ -41,7 +41,7 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer261 = wx.BoxSizer( wx.VERTICAL )
 
-		submit_mode_radioboxChoices = [ u"Pre- / Postprocessing", u"Monitor job dialog", u"Submit job dialog", u"Interactive Session" ]
+		submit_mode_radioboxChoices = [ u"Pre- / Postprocessing", u"Submit job dialog", u"Monitor job dialog", u"Interactive Session" ]
 		self.submit_mode_radiobox = wx.RadioBox( self.m_panel2, wx.ID_ANY, u"Mode", wx.DefaultPosition, wx.DefaultSize, submit_mode_radioboxChoices, 1, wx.RA_SPECIFY_COLS )
 		self.submit_mode_radiobox.SetSelection( 3 )
 		bSizer261.Add( self.submit_mode_radiobox, 0, wx.ALL, 5 )

@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.0.4"
+__version__ = "v3.1.0"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -253,14 +253,15 @@ class LauncherWindow(GUIFrame):
 
         # Get environment data
         self.user_dir = os.path.expanduser('~')
+        self.app_dir = self.ensure_app_folder()
         self.username = getpass.getuser()
         self.hostname = socket.gethostname()
         self.display_node = os.getenv('DISPLAY')
         self.squeue = 'squeue --me --format "%.18i %.9P %.8j %.8u %.2t %.4C %.20V %R"'
 
         # get paths
-        self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
-        self.default_settings_json = os.path.join(self.user_dir, '.aedt', 'default.json')
+        self.user_build_json = os.path.join(self.app_dir, 'user_build.json')
+        self.default_settings_json = os.path.join(self.app_dir, 'default.json')
 
         self.sge_request_file = os.path.join(os.environ["HOME"], ".sge_request")
 
@@ -296,14 +297,6 @@ class LauncherWindow(GUIFrame):
             msg = "Warning: Unknown Display Type!!"
             viz_type = ''
 
-        # create a path for .aedt folder if first run
-        if not os.path.exists(os.path.dirname(self.user_build_json)):
-            try:
-                os.makedirs(os.path.dirname(self.user_build_json))
-            except OSError as exc:  # Guard against race condition
-                if exc.errno != errno.EEXIST:
-                    raise
-
         # Set the status bars on the bottom of the window
         self.m_status_bar.SetStatusText('User: ' + self.username + ' on ' + viz_type + ' node ' + self.display_node, 0)
         self.m_status_bar.SetStatusText(msg, 1)
@@ -315,7 +308,7 @@ class LauncherWindow(GUIFrame):
         self.scheduler_msg_viewlist.AppendTextColumn('Timestamp', width=140)
         self.scheduler_msg_viewlist.AppendTextColumn('PID', width=75)
         self.scheduler_msg_viewlist.AppendTextColumn('Message')
-        self.logfile = os.path.join(self.user_dir, '.aedt', 'user_log_'+viz_type+'.json')
+        self.logfile = os.path.join(self.app_dir, 'user_log_'+viz_type+'.json')
 
         # read in previous log file
         self.log_data = {"Message List": [],
@@ -404,6 +397,23 @@ class LauncherWindow(GUIFrame):
         # after UI is loaded run select_mode to process UI correctly, otherwise UI is shifted since sizers do not
         # reserve space for hidden objects
         wx.CallAfter(self.select_mode)
+
+    @staticmethod
+    def ensure_app_folder():
+        """
+        create a path for .aedt folder if first run
+        :return: (str) path to app directory
+        """
+        user_dir = os.path.expanduser('~')
+        app_dir = os.path.join(user_dir, ".aedt")
+        if not os.path.exists(app_dir):
+            try:
+                os.makedirs(app_dir)
+            except OSError as exc:  # Guard against race condition
+                if exc.errno != errno.EEXIST:
+                    raise
+
+        return app_dir
 
     def on_signal(self, _unused_event):
         """Update UI when signal comes from subthread. Should be updated always from main thread"""
@@ -729,14 +739,19 @@ class LauncherWindow(GUIFrame):
         reservation, reservation_id = self.check_reservation()
         op_mode = self.submit_mode_radiobox.GetSelection()
 
-        job_type = "interactive" if op_mode == 3 else "pre-post"
+        job_type = {
+            0: "pre-post",
+            1: "monitor",
+            2: "submit",
+            3: "interactive"
+        }
         try:
-            self.send_statistics(aedt_version, job_type)
+            self.send_statistics(aedt_version, job_type[op_mode])
         except:
             # not worry a lot
             print("Error sending statistics")
 
-        if op_mode == 1:
+        if op_mode == 3:
             command = [scheduler, "--job-name", "aedt", "--partition", queue, "--export", env]
 
             if allocation_rule == 0:
@@ -774,8 +789,14 @@ class LauncherWindow(GUIFrame):
             self.add_log_entry()
 
         else:
-            env = env[4:] # remove ALL, from env vars
-            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env,)).start()
+            env = env[4:]  # remove ALL, from env vars
+            command_key = ""
+            if op_mode == 1:
+                command_key = "-showsubmitjob"
+            elif op_mode == 2:
+                command_key = "-showmonitorjob"
+
+            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env, command_key,)).start()
 
     def check_reservation(self):
         """
@@ -808,7 +829,7 @@ class LauncherWindow(GUIFrame):
     def usage_stat(self):
         """ Collect usage statistics of the launcher """
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        stat_file = os.path.join(self.user_dir, '.aedt', "run.log")
+        stat_file = os.path.join(self.app_dir, "run.log")
         with open(stat_file, "a") as file:
             file.write(self.m_select_version1.Value + "\t" + timestamp + "\n")
 
@@ -959,7 +980,7 @@ class LauncherWindow(GUIFrame):
     def shutdown_app(self, _unused_event):
         """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
         self.timer_stop()
-        lock_file = os.path.join(self.user_dir, '.aedt', 'ui.lock')
+        lock_file = os.path.join(self.app_dir, 'ui.lock')
         try:
             os.remove(lock_file)
         except FileNotFoundError:
@@ -977,11 +998,12 @@ class LauncherWindow(GUIFrame):
         subprocess.call(command)
 
     @staticmethod
-    def _submit_batch_thread(aedt_path, env):
+    def _submit_batch_thread(aedt_path, env, command_key):
         """
             Start EDT in pre/post mode
             :param aedt_path: path to the EDT root
             :param env: string with list of environment variables
+            :param command_key: add key to open Submit or Monitor Job dialog
             :return: None
         """
 
@@ -991,7 +1013,8 @@ class LauncherWindow(GUIFrame):
                 variable, value = var_value.split("=")
                 env_vars[variable] = value
 
-        subprocess.Popen([os.path.join(aedt_path, "ansysedt")], shell=True, env=env_vars)
+        command = [os.path.join(aedt_path, "ansysedt"), command_key]
+        subprocess.Popen(command, env=env_vars)
 
 
 def check_ssh():
@@ -1056,19 +1079,19 @@ def main():
     time.sleep(0.7)
 
     app = wx.App()
-    ex = LauncherWindow(None)
-    lock_file = os.path.join(ex.user_dir, '.aedt', 'ui.lock')
+
+    lock_file = os.path.join(LauncherWindow.ensure_app_folder(), 'ui.lock')
     if os.path.exists(lock_file):
         result = add_message(("Application was not properly closed or you have multiple instances opened. " +
                               "Do you really want to open new instance?"),
                              "Instance error", "?")
         if result != wx.ID_OK:
-            ex.Close()
             return
     else:
         with open(lock_file, "w") as file:
             file.write("1")
 
+    ex = LauncherWindow(None)
     ex.Show()
     app.MainLoop()
 
