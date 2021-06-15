@@ -41,9 +41,9 @@ class GUIFrame ( wx.Frame ):
 
 		bSizer261 = wx.BoxSizer( wx.VERTICAL )
 
-		submit_mode_radioboxChoices = [ u"Pre- / Postprocessing", u"Interactive Session" ]
+		submit_mode_radioboxChoices = [ u"Pre- / Postprocessing", u"Monitor job dialog", u"Submit job dialog", u"Interactive Session" ]
 		self.submit_mode_radiobox = wx.RadioBox( self.m_panel2, wx.ID_ANY, u"Mode", wx.DefaultPosition, wx.DefaultSize, submit_mode_radioboxChoices, 1, wx.RA_SPECIFY_COLS )
-		self.submit_mode_radiobox.SetSelection( 1 )
+		self.submit_mode_radiobox.SetSelection( 3 )
 		bSizer261.Add( self.submit_mode_radiobox, 0, wx.ALL, 5 )
 
 
@@ -53,12 +53,12 @@ class GUIFrame ( wx.Frame ):
 
 		QueueSizer = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.m_staticText1 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Queue", wx.DefaultPosition, wx.DefaultSize, 0 )
-		self.m_staticText1.Wrap( -1 )
+		self.m_queue_caption = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Queue", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_queue_caption.Wrap( -1 )
 
-		self.m_staticText1.SetMinSize( wx.Size( 100,-1 ) )
+		self.m_queue_caption.SetMinSize( wx.Size( 100,-1 ) )
 
-		QueueSizer.Add( self.m_staticText1, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
+		QueueSizer.Add( self.m_queue_caption, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
 		queue_dropmenuChoices = [ u"euc09", u"ottc01", u"euc09lm" ]
 		self.queue_dropmenu = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.Size( -1,-1 ), queue_dropmenuChoices, wx.CB_READONLY )
@@ -72,12 +72,12 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.m_staticText12 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Allocation", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
-		self.m_staticText12.Wrap( -1 )
+		self.m_alloc_caption = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Allocation", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
+		self.m_alloc_caption.Wrap( -1 )
 
-		self.m_staticText12.SetMinSize( wx.Size( 100,-1 ) )
+		self.m_alloc_caption.SetMinSize( wx.Size( 100,-1 ) )
 
-		PESizer.Add( self.m_staticText12, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
+		PESizer.Add( self.m_alloc_caption, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 
 		m_alloc_dropmenuChoices = [ u"1 Node and Cores", u"Multiple Nodes" ]
 		self.m_alloc_dropmenu = wx.ComboBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, m_alloc_dropmenuChoices, wx.CB_READONLY )
@@ -124,19 +124,19 @@ class GUIFrame ( wx.Frame ):
 
 		reserved_sizer = wx.BoxSizer( wx.HORIZONTAL )
 
-		self.reserved_checkbox = wx.CheckBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
-		self.reserved_checkbox.SetFont( wx.Font( wx.NORMAL_FONT.GetPointSize(), wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
-		self.reserved_checkbox.SetMinSize( wx.Size( 20,-1 ) )
-		self.reserved_checkbox.SetMaxSize( wx.Size( 20,-1 ) )
+		self.m_reserved_checkbox = wx.CheckBox( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.m_reserved_checkbox.SetFont( wx.Font( wx.NORMAL_FONT.GetPointSize(), wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, wx.EmptyString ) )
+		self.m_reserved_checkbox.SetMinSize( wx.Size( 20,-1 ) )
+		self.m_reserved_checkbox.SetMaxSize( wx.Size( 20,-1 ) )
 
-		reserved_sizer.Add( self.reserved_checkbox, 0, wx.ALL, 5 )
+		reserved_sizer.Add( self.m_reserved_checkbox, 0, wx.ALL, 5 )
 
-		self.m_staticText121111 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Reservation ID", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
-		self.m_staticText121111.Wrap( -1 )
+		self.m_reservation_caption = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Reservation ID", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
+		self.m_reservation_caption.Wrap( -1 )
 
-		self.m_staticText121111.SetMinSize( wx.Size( 90,-1 ) )
+		self.m_reservation_caption.SetMinSize( wx.Size( 90,-1 ) )
 
-		reserved_sizer.Add( self.m_staticText121111, 0, wx.ALL, 5 )
+		reserved_sizer.Add( self.m_reservation_caption, 0, wx.ALL, 5 )
 
 		self.reservation_id_text = wx.TextCtrl( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
 		self.reservation_id_text.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
@@ -223,13 +223,13 @@ class GUIFrame ( wx.Frame ):
 
 		PESizer1.Add( self.m_nodes_list_checkbox, 0, wx.ALL, 5 )
 
-		self.m_staticText12111 = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Specify Nodes", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
-		self.m_staticText12111.Wrap( 1 )
+		self.m_specify_nodes_caption = wx.StaticText( self.m_panel2, wx.ID_ANY, u"Specify Nodes", wx.Point( -1,-1 ), wx.DefaultSize, 0 )
+		self.m_specify_nodes_caption.Wrap( 1 )
 
-		self.m_staticText12111.SetMinSize( wx.Size( 64,-1 ) )
-		self.m_staticText12111.SetMaxSize( wx.Size( 64,-1 ) )
+		self.m_specify_nodes_caption.SetMinSize( wx.Size( 64,-1 ) )
+		self.m_specify_nodes_caption.SetMaxSize( wx.Size( 64,-1 ) )
 
-		PESizer1.Add( self.m_staticText12111, 0, wx.ALL, 5 )
+		PESizer1.Add( self.m_specify_nodes_caption, 0, wx.ALL, 5 )
 
 		self.m_nodes_list = wx.TextCtrl( self.m_panel2, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_CHARWRAP|wx.TE_LEFT|wx.TE_MULTILINE )
 		self.m_nodes_list.SetFont( wx.Font( 9, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Arial" ) )
@@ -439,7 +439,7 @@ class GUIFrame ( wx.Frame ):
 		self.queue_dropmenu.Bind( wx.EVT_COMBOBOX, self.select_queue )
 		self.m_alloc_dropmenu.Bind( wx.EVT_COMBOBOX, self.evt_select_allocation )
 		self.m_numcore.Bind( wx.EVT_TEXT, self.evt_num_cores_nodes_change )
-		self.reserved_checkbox.Bind( wx.EVT_CHECKBOX, self.on_reserve_check )
+		self.m_reserved_checkbox.Bind( wx.EVT_CHECKBOX, self.on_reserve_check )
 		self.set_path_button.Bind( wx.EVT_BUTTON, self.set_project_path )
 		self.m_button1.Bind( wx.EVT_BUTTON, self.click_launch )
 		self.m_nodes_list_checkbox.Bind( wx.EVT_CHECKBOX, self.evt_node_list_check )

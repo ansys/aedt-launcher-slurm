@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.0.3"
+__version__ = "v3.0.4"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -263,7 +263,7 @@ class LauncherWindow(GUIFrame):
         self.default_settings_json = os.path.join(self.user_dir, '.aedt', 'default.json')
 
         self.sge_request_file = os.path.join(os.environ["HOME"], ".sge_request")
-        
+
         self.builds_data = {}
         self.default_settings = {}
 
@@ -370,9 +370,8 @@ class LauncherWindow(GUIFrame):
             self.submit_mode_radiobox.Select(0)
         else:
             self.submit_mode_radiobox.EnableItem(1, True)
-            self.submit_mode_radiobox.Select(1)
+            self.submit_mode_radiobox.Select(3)
 
-        self.select_mode()
         self.m_notebook2.ChangeSelection(0)
         self.read_custom_builds()
 
@@ -401,6 +400,10 @@ class LauncherWindow(GUIFrame):
         # start a thread to update cluster load
         worker = ClusterLoadUpdateThread(self)
         worker.start()
+
+        # after UI is loaded run select_mode to process UI correctly, otherwise UI is shifted since sizers do not
+        # reserve space for hidden objects
+        wx.CallAfter(self.select_mode)
 
     def on_signal(self, _unused_event):
         """Update UI when signal comes from subthread. Should be updated always from main thread"""
@@ -461,7 +464,7 @@ class LauncherWindow(GUIFrame):
             "use_node_list": self.m_nodes_list_checkbox.Value,
             "node_list": self.m_nodes_list.Value,
             "project_path": self.path_textbox.Value,
-            "use_reservation": self.reserved_checkbox.Value,
+            "use_reservation": self.m_reserved_checkbox.Value,
             "reservation_id": self.reservation_id_text.Value
         }
 
@@ -488,7 +491,7 @@ class LauncherWindow(GUIFrame):
 
             self.path_textbox.Value = self.default_settings["project_path"]
 
-            self.reserved_checkbox.Value = self.default_settings["use_reservation"]
+            self.m_reserved_checkbox.Value = self.default_settings["use_reservation"]
             self.reservation_id_text.Value = self.default_settings["reservation_id"]
 
             queue_value = self.queue_dropmenu.GetValue()
@@ -559,18 +562,30 @@ class LauncherWindow(GUIFrame):
             Grey out options that are not applicable for Pre/Post
         """
         sel = self.submit_mode_radiobox.Selection
-        if sel == 0:
+        if sel == 3:
+            enable = True
+        else:
             enable = False
             self.m_nodes_list_checkbox.Value = False
-        else:
-            enable = True
+            self.m_reserved_checkbox.Value = False
+            self.reservation_id_text.Show(enable)
+            self.m_nodes_list.Show(enable)
 
-        self.queue_dropmenu.Enabled = enable
-        self.m_numcore.Enabled = enable
-        self.m_node_label.Enabled = enable
+        self.m_summary_caption.Show(enable)
+        self.queue_dropmenu.Show(enable)
+        self.m_numcore.Show(enable)
+        self.m_node_label.Show(enable)
+        self.m_nodes_list_checkbox.Show(enable)
+        self.m_alloc_dropmenu.Show(enable)
+        self.m_num_cores_caption.Show(enable)
+        self.m_alloc_caption.Show(enable)
+        self.m_queue_caption.Show(enable)
+        self.m_specify_nodes_caption.Show(enable)
 
-        self.m_nodes_list_checkbox.Enabled = enable
-        self.m_nodes_list.Enabled = enable
+        # todo remove if find a way to run reservation for Slurm batch
+        self.m_reserved_checkbox.Show(enable)
+        self.m_reservation_caption.Show(enable)
+
         # self.m_alloc_dropmenu.Enable(enable)  # todo enable if Slurm will support non-exclusive
         self.evt_select_allocation()
         self.evt_num_cores_nodes_change()
@@ -674,7 +689,7 @@ class LauncherWindow(GUIFrame):
             callback called when clicked Reservation
             Will Hide/Show input field for reservation ID
         """
-        if self.reserved_checkbox.Value:
+        if self.m_reserved_checkbox.Value:
             self.reservation_id_text.Show()
         else:
             self.reservation_id_text.Hide()
@@ -714,7 +729,7 @@ class LauncherWindow(GUIFrame):
         reservation, reservation_id = self.check_reservation()
         op_mode = self.submit_mode_radiobox.GetSelection()
 
-        job_type = "interactive" if op_mode == 1 else "pre-post"
+        job_type = "interactive" if op_mode == 3 else "pre-post"
         try:
             self.send_statistics(aedt_version, job_type)
         except:
@@ -759,13 +774,7 @@ class LauncherWindow(GUIFrame):
             self.add_log_entry()
 
         else:
-            # if reservation:
-            #     if reservation_id:
-            #         with open(self.sge_request_file, "w") as file:  # todo update for slurm
-            #             file.write(f"-ar {reservation_id}")
-            #     else:
-            #         return
-
+            env = env[4:] # remove ALL, from env vars
             threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env,)).start()
 
     def check_reservation(self):
@@ -775,7 +784,7 @@ class LauncherWindow(GUIFrame):
         :return: (reservation (bool), Reservation ID (str)) True if reservation was checked AND reservation ID if
         the value is correct
         """
-        reservation = self.reserved_checkbox.Value
+        reservation = self.m_reserved_checkbox.Value
         ar = ""
         if reservation:
             ar = self.reservation_id_text.Value
