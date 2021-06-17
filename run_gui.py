@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.0.3"
+__version__ = "v3.1.1"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -253,17 +253,18 @@ class LauncherWindow(GUIFrame):
 
         # Get environment data
         self.user_dir = os.path.expanduser('~')
+        self.app_dir = self.ensure_app_folder()
         self.username = getpass.getuser()
         self.hostname = socket.gethostname()
         self.display_node = os.getenv('DISPLAY')
         self.squeue = 'squeue --me --format "%.18i %.9P %.8j %.8u %.2t %.4C %.20V %R"'
 
         # get paths
-        self.user_build_json = os.path.join(self.user_dir, '.aedt', 'user_build.json')
-        self.default_settings_json = os.path.join(self.user_dir, '.aedt', 'default.json')
+        self.user_build_json = os.path.join(self.app_dir, 'user_build.json')
+        self.default_settings_json = os.path.join(self.app_dir, 'default.json')
 
         self.sge_request_file = os.path.join(os.environ["HOME"], ".sge_request")
-        
+
         self.builds_data = {}
         self.default_settings = {}
 
@@ -296,14 +297,6 @@ class LauncherWindow(GUIFrame):
             msg = "Warning: Unknown Display Type!!"
             viz_type = ''
 
-        # create a path for .aedt folder if first run
-        if not os.path.exists(os.path.dirname(self.user_build_json)):
-            try:
-                os.makedirs(os.path.dirname(self.user_build_json))
-            except OSError as exc:  # Guard against race condition
-                if exc.errno != errno.EEXIST:
-                    raise
-
         # Set the status bars on the bottom of the window
         self.m_status_bar.SetStatusText('User: ' + self.username + ' on ' + viz_type + ' node ' + self.display_node, 0)
         self.m_status_bar.SetStatusText(msg, 1)
@@ -315,7 +308,7 @@ class LauncherWindow(GUIFrame):
         self.scheduler_msg_viewlist.AppendTextColumn('Timestamp', width=140)
         self.scheduler_msg_viewlist.AppendTextColumn('PID', width=75)
         self.scheduler_msg_viewlist.AppendTextColumn('Message')
-        self.logfile = os.path.join(self.user_dir, '.aedt', 'user_log_'+viz_type+'.json')
+        self.logfile = os.path.join(self.app_dir, 'user_log_'+viz_type+'.json')
 
         # read in previous log file
         self.log_data = {"Message List": [],
@@ -370,9 +363,8 @@ class LauncherWindow(GUIFrame):
             self.submit_mode_radiobox.Select(0)
         else:
             self.submit_mode_radiobox.EnableItem(1, True)
-            self.submit_mode_radiobox.Select(1)
+            self.submit_mode_radiobox.Select(3)
 
-        self.select_mode()
         self.m_notebook2.ChangeSelection(0)
         self.read_custom_builds()
 
@@ -401,6 +393,28 @@ class LauncherWindow(GUIFrame):
         # start a thread to update cluster load
         worker = ClusterLoadUpdateThread(self)
         worker.start()
+
+        self.m_nodes_list.Show(True)  # required for proper rendering
+        # after UI is loaded run select_mode to process UI correctly, otherwise UI is shifted since sizers do not
+        # reserve space for hidden objects
+        wx.CallAfter(self.select_mode)
+
+    @staticmethod
+    def ensure_app_folder():
+        """
+        create a path for .aedt folder if first run
+        :return: (str) path to app directory
+        """
+        user_dir = os.path.expanduser('~')
+        app_dir = os.path.join(user_dir, ".aedt")
+        if not os.path.exists(app_dir):
+            try:
+                os.makedirs(app_dir)
+            except OSError as exc:  # Guard against race condition
+                if exc.errno != errno.EEXIST:
+                    raise
+
+        return app_dir
 
     def on_signal(self, _unused_event):
         """Update UI when signal comes from subthread. Should be updated always from main thread"""
@@ -461,7 +475,7 @@ class LauncherWindow(GUIFrame):
             "use_node_list": self.m_nodes_list_checkbox.Value,
             "node_list": self.m_nodes_list.Value,
             "project_path": self.path_textbox.Value,
-            "use_reservation": self.reserved_checkbox.Value,
+            "use_reservation": self.m_reserved_checkbox.Value,
             "reservation_id": self.reservation_id_text.Value
         }
 
@@ -488,7 +502,7 @@ class LauncherWindow(GUIFrame):
 
             self.path_textbox.Value = self.default_settings["project_path"]
 
-            self.reserved_checkbox.Value = self.default_settings["use_reservation"]
+            self.m_reserved_checkbox.Value = self.default_settings["use_reservation"]
             self.reservation_id_text.Value = self.default_settings["reservation_id"]
 
             queue_value = self.queue_dropmenu.GetValue()
@@ -559,18 +573,32 @@ class LauncherWindow(GUIFrame):
             Grey out options that are not applicable for Pre/Post
         """
         sel = self.submit_mode_radiobox.Selection
-        if sel == 0:
-            enable = False
-            self.m_nodes_list_checkbox.Value = False
-        else:
+        if sel == 3:
             enable = True
 
-        self.queue_dropmenu.Enabled = enable
-        self.m_numcore.Enabled = enable
-        self.m_node_label.Enabled = enable
+            self.m_nodes_list.Show(self.m_nodes_list_checkbox.Value)  # required for proper rendering
+        else:
+            enable = False
+            self.m_nodes_list_checkbox.Value = False
+            self.m_reserved_checkbox.Value = False
+            self.reservation_id_text.Show(enable)
+            self.m_nodes_list.Show(enable)
 
-        self.m_nodes_list_checkbox.Enabled = enable
-        self.m_nodes_list.Enabled = enable
+        self.m_summary_caption.Show(enable)
+        self.queue_dropmenu.Show(enable)
+        self.m_numcore.Show(enable)
+        self.m_node_label.Show(enable)
+        self.m_nodes_list_checkbox.Show(enable)
+        self.m_alloc_dropmenu.Show(enable)
+        self.m_num_cores_caption.Show(enable)
+        self.m_alloc_caption.Show(enable)
+        self.m_queue_caption.Show(enable)
+        self.m_specify_nodes_caption.Show(enable)
+
+        # todo remove if find a way to run reservation for Slurm batch
+        self.m_reserved_checkbox.Show(enable)
+        self.m_reservation_caption.Show(enable)
+
         # self.m_alloc_dropmenu.Enable(enable)  # todo enable if Slurm will support non-exclusive
         self.evt_select_allocation()
         self.evt_num_cores_nodes_change()
@@ -674,7 +702,7 @@ class LauncherWindow(GUIFrame):
             callback called when clicked Reservation
             Will Hide/Show input field for reservation ID
         """
-        if self.reserved_checkbox.Value:
+        if self.m_reserved_checkbox.Value:
             self.reservation_id_text.Show()
         else:
             self.reservation_id_text.Hide()
@@ -714,14 +742,19 @@ class LauncherWindow(GUIFrame):
         reservation, reservation_id = self.check_reservation()
         op_mode = self.submit_mode_radiobox.GetSelection()
 
-        job_type = "interactive" if op_mode == 1 else "pre-post"
+        job_type = {
+            0: "pre-post",
+            1: "monitor",
+            2: "submit",
+            3: "interactive"
+        }
         try:
-            self.send_statistics(aedt_version, job_type)
+            self.send_statistics(aedt_version, job_type[op_mode])
         except:
             # not worry a lot
             print("Error sending statistics")
 
-        if op_mode == 1:
+        if op_mode == 3:
             command = [scheduler, "--job-name", "aedt", "--partition", queue, "--export", env]
 
             if allocation_rule == 0:
@@ -759,14 +792,14 @@ class LauncherWindow(GUIFrame):
             self.add_log_entry()
 
         else:
-            # if reservation:
-            #     if reservation_id:
-            #         with open(self.sge_request_file, "w") as file:  # todo update for slurm
-            #             file.write(f"-ar {reservation_id}")
-            #     else:
-            #         return
+            env = env[4:]  # remove ALL, from env vars
+            command_key = ""
+            if op_mode == 1:
+                command_key = "-showsubmitjob"
+            elif op_mode == 2:
+                command_key = "-showmonitorjob"
 
-            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env,)).start()
+            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env, command_key,)).start()
 
     def check_reservation(self):
         """
@@ -775,7 +808,7 @@ class LauncherWindow(GUIFrame):
         :return: (reservation (bool), Reservation ID (str)) True if reservation was checked AND reservation ID if
         the value is correct
         """
-        reservation = self.reserved_checkbox.Value
+        reservation = self.m_reserved_checkbox.Value
         ar = ""
         if reservation:
             ar = self.reservation_id_text.Value
@@ -799,7 +832,7 @@ class LauncherWindow(GUIFrame):
     def usage_stat(self):
         """ Collect usage statistics of the launcher """
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        stat_file = os.path.join(self.user_dir, '.aedt', "run.log")
+        stat_file = os.path.join(self.app_dir, "run.log")
         with open(stat_file, "a") as file:
             file.write(self.m_select_version1.Value + "\t" + timestamp + "\n")
 
@@ -950,7 +983,7 @@ class LauncherWindow(GUIFrame):
     def shutdown_app(self, _unused_event):
         """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
         self.timer_stop()
-        lock_file = os.path.join(self.user_dir, '.aedt', 'ui.lock')
+        lock_file = os.path.join(self.app_dir, 'ui.lock')
         try:
             os.remove(lock_file)
         except FileNotFoundError:
@@ -968,11 +1001,12 @@ class LauncherWindow(GUIFrame):
         subprocess.call(command)
 
     @staticmethod
-    def _submit_batch_thread(aedt_path, env):
+    def _submit_batch_thread(aedt_path, env, command_key):
         """
             Start EDT in pre/post mode
             :param aedt_path: path to the EDT root
             :param env: string with list of environment variables
+            :param command_key: add key to open Submit or Monitor Job dialog
             :return: None
         """
 
@@ -982,7 +1016,8 @@ class LauncherWindow(GUIFrame):
                 variable, value = var_value.split("=")
                 env_vars[variable] = value
 
-        subprocess.Popen([os.path.join(aedt_path, "ansysedt")], shell=True, env=env_vars)
+        command = [os.path.join(aedt_path, "ansysedt"), command_key]
+        subprocess.Popen(command, env=env_vars)
 
 
 def check_ssh():
@@ -1047,19 +1082,19 @@ def main():
     time.sleep(0.7)
 
     app = wx.App()
-    ex = LauncherWindow(None)
-    lock_file = os.path.join(ex.user_dir, '.aedt', 'ui.lock')
+
+    lock_file = os.path.join(LauncherWindow.ensure_app_folder(), 'ui.lock')
     if os.path.exists(lock_file):
         result = add_message(("Application was not properly closed or you have multiple instances opened. " +
                               "Do you really want to open new instance?"),
                              "Instance error", "?")
         if result != wx.ID_OK:
-            ex.Close()
             return
     else:
         with open(lock_file, "w") as file:
             file.write("1")
 
+    ex = LauncherWindow(None)
     ex.Show()
     app.MainLoop()
 
