@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.1"
+__version__ = "v3.1.2"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -271,8 +271,12 @@ class LauncherWindow(GUIFrame):
         # generate list of products for registry
         self.products = {}
         for key in install_dir.keys():
-            with open(os.path.join(install_dir[key], "config", "ProductList.txt")) as file:
-                self.products[key] = next(file).rstrip()  # get first line
+            try:
+                with open(os.path.join(install_dir[key], "config", "ProductList.txt")) as file:
+                    self.products[key] = next(file).rstrip()  # get first line
+            except FileNotFoundError:
+                print(f"Installation is corrupted {install_dir[key]}")
+                install_dir.pop(key)
 
         # set default project path
         self.path_textbox.Value = os.path.join(project_path, self.username)
