@@ -28,10 +28,12 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.2"
+__version__ = "v3.1.3"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
+
+FIREFOX = "/bin/firefox"  # path to installation of firefox for Overwatch
 
 # read cluster configuration from a file
 cluster_configuration_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "cluster_configuration.json")
@@ -713,6 +715,10 @@ class LauncherWindow(GUIFrame):
 
     def submit_overwatch_thread(self, _unused_event):
         """ Opens OverWatch on button click """
+        if not os.path.isfile(FIREFOX):
+            add_message("Firefox is not installed on the cluster", title="Error", icon="!")
+            return
+
         threading.Thread(target=self.open_overwatch, daemon=True).start()
 
     def click_launch(self, _unused_event):
@@ -1001,7 +1007,7 @@ class LauncherWindow(GUIFrame):
 
     def open_overwatch(self):
         """ Open Overwatch with java """
-        command = ["/bin/firefox", f"{overwatch_url}/users/{self.username}"]
+        command = [FIREFOX, f"{overwatch_url}/users/{self.username}"]
         subprocess.call(command)
 
     @staticmethod
