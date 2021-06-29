@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.3"
+__version__ = "v3.1.4"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -169,7 +169,7 @@ class ClusterLoadUpdateThread(threading.Thread):
         exclude = cluster_config["vnc_nodes"] + cluster_config["dcv_nodes"]
         for i, line in enumerate(slurm_stat_output.split("\n")[1:]):
             pid = line[0:18].strip()
-            partition = line[19:28].strip()
+            # partition = line[19:28].strip()
             job_name = line[29:38].strip()
             user = line[38:47].strip()
             state = line[48:49].strip()
@@ -663,7 +663,6 @@ class LauncherWindow(GUIFrame):
         """On double click on process row will propose to abort running job"""
         row = self.qstat_viewlist.GetSelectedRow()
         pid = self.qstat_viewlist.GetTextValue(row, 0)
-        queue = self.qstat_viewlist.GetTextValue(row, 4)
 
         result = add_message("Abort Queue Process {}?\n".format(pid), "Confirm Abort", "?")
 
