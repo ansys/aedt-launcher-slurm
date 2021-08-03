@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.3"
+__version__ = "v3.1.4"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -169,7 +169,7 @@ class ClusterLoadUpdateThread(threading.Thread):
         exclude = cluster_config["vnc_nodes"] + cluster_config["dcv_nodes"]
         for i, line in enumerate(slurm_stat_output.split("\n")[1:]):
             pid = line[0:18].strip()
-            partition = line[19:28].strip()
+            # partition = line[19:28].strip()
             job_name = line[29:38].strip()
             user = line[38:47].strip()
             state = line[48:49].strip()
@@ -264,8 +264,6 @@ class LauncherWindow(GUIFrame):
         # get paths
         self.user_build_json = os.path.join(self.app_dir, 'user_build.json')
         self.default_settings_json = os.path.join(self.app_dir, 'default.json')
-
-        self.sge_request_file = os.path.join(os.environ["HOME"], ".sge_request")
 
         self.builds_data = {}
         self.default_settings = {}
@@ -663,7 +661,6 @@ class LauncherWindow(GUIFrame):
         """On double click on process row will propose to abort running job"""
         row = self.qstat_viewlist.GetSelectedRow()
         pid = self.qstat_viewlist.GetTextValue(row, 0)
-        queue = self.qstat_viewlist.GetTextValue(row, 4)
 
         result = add_message("Abort Queue Process {}?\n".format(pid), "Confirm Abort", "?")
 
@@ -780,6 +777,8 @@ class LauncherWindow(GUIFrame):
                 command += ["--nodelist", self.m_nodes_list.Value]
 
             if reservation:
+                if not reservation_id:
+                    return
                 command += ["--reservation", reservation_id]
 
             aedt_str = " ".join([os.path.join(aedt_path, "ansysedt"), "-machinelist", f"num={total_cores}"])
@@ -792,7 +791,7 @@ class LauncherWindow(GUIFrame):
                 msg = exc.output
                 log_dict["scheduler"] = True
             else:
-                msg = f"Job submitted to {queue} on {scheduler}\nSubmit Command:{command}"
+                msg = f"Job submitted to {queue}\nSubmit Command:{command}"
                 pid = output.strip().split()[-1]
                 log_dict["scheduler"] = False
                 log_dict["pid"] = pid
@@ -825,17 +824,6 @@ class LauncherWindow(GUIFrame):
             if ar in [None, ""]:
                 add_message("Reservation ID is not provided. Please set ID and click launch again",
                             "Reservation ID", "!")
-            else:
-                try:
-                    int(ar)
-                except ValueError:
-                    ar = ""
-                    add_message("Reservation ID should be integer. Please set ID and click launch again",
-                                "Reservation ID", "!")
-
-        else:
-            if os.path.isfile(self.sge_request_file):
-                os.remove(self.sge_request_file)
 
         return reservation, ar
 
