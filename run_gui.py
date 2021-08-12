@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.4"
+__version__ = "v3.1.5"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -234,7 +234,7 @@ class ClusterLoadUpdateThread(threading.Thread):
         with requests.get(f"{overwatch_api_url}/api/v1/overwatch/minclusterstatus") as url_req:
             cluster_data = url_req.json()
 
-        for queue_elem in cluster_data["Queues"]:
+        for queue_elem in cluster_data["QueueStatus"]:
             queue_name = queue_elem["name"]
             if queue_name in queue_dict:
                 queue_dict[queue_name]["total_cores"] = queue_elem["totalSlots"]
