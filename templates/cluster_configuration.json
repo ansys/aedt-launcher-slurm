@@ -7,7 +7,8 @@
         "ottvnc"
     ],
     "dcv_nodes": [
-        "eurgs"
+        "eurgs",
+        "dcv"
     ],
     "default_version": "2021 R1",
     "install_dir": {

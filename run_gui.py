@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.5"
+__version__ = "v3.1.7"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -363,10 +363,10 @@ class LauncherWindow(GUIFrame):
 
         # Disable Pre-Post/Interactive radio button in case of DCV
         if viz_type == 'DCV':
-            self.submit_mode_radiobox.EnableItem(1, False)
-            self.submit_mode_radiobox.Select(0)
+            self.submit_mode_radiobox.EnableItem(3, False)
+            self.submit_mode_radiobox.SetSelection(0)
         else:
-            self.submit_mode_radiobox.EnableItem(1, True)
+            self.submit_mode_radiobox.EnableItem(3, True)
             self.submit_mode_radiobox.Select(3)
 
         self.m_notebook2.ChangeSelection(0)
@@ -470,7 +470,6 @@ class LauncherWindow(GUIFrame):
         """
         self.default_settings = {
             "version": __version__,
-            "mode": self.submit_mode_radiobox.Selection,
             "queue": self.queue_dropmenu.GetValue(),
             "allocation": self.m_alloc_dropmenu.GetValue(),
             "num_cores": self.m_numcore.Value,
@@ -495,7 +494,6 @@ class LauncherWindow(GUIFrame):
 
         try:
             # todo add allocation
-            self.submit_mode_radiobox.Selection = self.default_settings["mode"]
             self.queue_dropmenu.Value = self.default_settings["queue"]
             self.m_numcore.Value = self.default_settings["num_cores"]
             self.m_select_version1.Value = self.default_settings["aedt_version"]
