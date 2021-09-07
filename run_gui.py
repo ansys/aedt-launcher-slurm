@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.7"
+__version__ = "v3.1.8"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -441,11 +441,16 @@ class LauncherWindow(GUIFrame):
                 os.remove(self.user_build_json)
                 return
 
-            for key in self.builds_data.keys():
-                self.user_build_viewlist.AppendItem([key, self.builds_data[key]])
-                install_dir[key] = self.builds_data[key]
-                with open(os.path.join(self.builds_data[key], "config", "ProductList.txt")) as file:
-                    self.products[key] = next(file).rstrip()  # get first line
+            for bld_version, bld_path in self.builds_data.items():
+                prod_list_path = os.path.join(bld_path, "config", "ProductList.txt")
+                if not os.path.isfile(prod_list_path):
+                    print(f"Product is not available. Please check {bld_path}")
+                    continue
+
+                self.user_build_viewlist.AppendItem([bld_version, bld_path])
+                install_dir[bld_version] = bld_path
+                with open(prod_list_path) as file:
+                    self.products[bld_version] = next(file).rstrip()  # get first line
 
             # update values in version selector on 1st page
             init_combobox(install_dir.keys(), self.m_select_version1, default_version)
