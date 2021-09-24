@@ -22,15 +22,16 @@
         "2020 R1": "/ott/apps/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64",
         "2020 R2": "/ott/apps/software/ANSYS_EM_2020R2/AnsysEM20.2/Linux64",
 	    "2021 R1": "/ott/apps/software/ANSYS_EM_2021R1/AnsysEM21.1/Linux64",
-        "2021 R2_Daily_Cert": "/ott/apps/daily_builds/linx64/v212_EBU_Certified_Daily/AnsysEM/AnsysEM21.2/Linux64",
-        "2021 R2_Weekly_Cert": "/ott/apps/daily_builds/linx64/v212_EBU_Certified_Weekly/AnsysEM/AnsysEM21.2/Linux64"
+	    "2021 R2": "/ott/apps/software/ANSYS_EM_2021R2/AnsysEM21.2/Linux64",
+        "2022 R1_Daily_Cert": "/ott/apps/daily_builds/linx64/v221_EBU_Certified_Daily/AnsysEM/v221/Linux64",
+        "2022 R1_Weekly_Cert": "/ott/apps/daily_builds/linx64/v221_EBU_Certified_Weekly/AnsysEM/v221/Linux64"
     },
     "queue_config_dict": {
-        "euc09": {"cores": 20, "ram": 128},
         "ottc01": {"cores": 28, "ram": 128},
         "euc09lm": {"cores": 28, "ram": 512},
         "ottc02": {"cores": 32, "ram": 180},
-        "ottc02lm": {"cores": 32, "ram": 370}
+        "ottc02lm": {"cores": 32, "ram": 370},
+        "ottc02vlm": {"cores": 32, "ram": 750}
     },
-    "default_queue": "euc09"
+    "default_queue": "ottc01"
 }

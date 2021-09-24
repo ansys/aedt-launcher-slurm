@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.8"
+__version__ = "v3.1.9"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -498,7 +498,10 @@ class LauncherWindow(GUIFrame):
             self.default_settings = json.load(file)
 
         try:
-            # todo add allocation
+            if self.default_settings["queue"] not in queue_config_dict:
+                # if queue was deleted from cluster
+                self.default_settings["queue"] = default_queue
+
             self.queue_dropmenu.Value = self.default_settings["queue"]
             self.m_numcore.Value = self.default_settings["num_cores"]
             self.m_select_version1.Value = self.default_settings["aedt_version"]
