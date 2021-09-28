@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.8"
+__version__ = "v3.1.11"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -66,6 +66,8 @@ try:
     default_queue = cluster_config["default_queue"]
 
     project_path = cluster_config["user_project_path_root"]
+
+    admin_env_vars = cluster_config.pop("environment_vars", None)
 except KeyError as key_e:
     print(("\nConfiguration file is wrong!\nCheck format of {} \nOnly double quotes are allowed." +
           "\nFollowing key does not exist: {}").format(cluster_configuration_file, key_e.args[0]))
@@ -298,6 +300,10 @@ class LauncherWindow(GUIFrame):
 
         msg = 'No Status Message'
         if viz_type is None:
+            add_message(message=("Display Type is unknown: cannot identify VNC/DCV. "
+                                 "Interactive Submission might fail.\n"
+                                 "Contact cluster administrator."),
+                        title="Display Type Error", icon="!")
             msg = "Warning: Unknown Display Type!!"
             viz_type = ''
 
@@ -498,7 +504,10 @@ class LauncherWindow(GUIFrame):
             self.default_settings = json.load(file)
 
         try:
-            # todo add allocation
+            if self.default_settings["queue"] not in queue_config_dict:
+                # if queue was deleted from cluster
+                self.default_settings["queue"] = default_queue
+
             self.queue_dropmenu.Value = self.default_settings["queue"]
             self.m_numcore.Value = self.default_settings["num_cores"]
             self.m_select_version1.Value = self.default_settings["aedt_version"]
@@ -733,9 +742,13 @@ class LauncherWindow(GUIFrame):
         aedt_version = self.m_select_version1.Value
         aedt_path = install_dir[aedt_version]
 
-        env = "ALL,ANS_NODEPCHECK=1"
+        env = "ALL"
         if self.env_var_text.Value:
             env += "," + self.env_var_text.Value
+
+        if admin_env_vars:
+            env_list = [f"{env_var}={env_val}" for env_var, env_val in admin_env_vars.items()]
+            env += "," + ",".join(env_list)
 
         # verify that no double commas, spaces, etc
         if env:
@@ -776,8 +789,10 @@ class LauncherWindow(GUIFrame):
                 total_cores = cores_per_node * num_nodes
                 command += ["--nodes", f"{num_nodes}-{num_nodes}", "--ntasks", str(total_cores)]
 
-            if self.m_nodes_list_checkbox.Value and self.m_nodes_list.Value:
-                command += ["--nodelist", self.m_nodes_list.Value]
+            nodes_list_str = self.m_nodes_list.Value
+            nodes_list_str = nodes_list_str.replace(" ", "")
+            if self.m_nodes_list_checkbox.Value and nodes_list_str:
+                command += ["--nodelist", nodes_list_str]
 
             if reservation:
                 if not reservation_id:
@@ -787,6 +802,7 @@ class LauncherWindow(GUIFrame):
             aedt_str = " ".join([os.path.join(aedt_path, "ansysedt"), "-machinelist", f"num={total_cores}"])
             command += ["--wrap", f'"{aedt_str}"']
             command = " ".join(command)  # convert to string to avoid escaping characters
+            print(f"Execute with {command}")
             try:
                 output = subprocess.check_output(
                     command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
