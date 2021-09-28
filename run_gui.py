@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.10"
+__version__ = "v3.1.11"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -298,6 +298,10 @@ class LauncherWindow(GUIFrame):
 
         msg = 'No Status Message'
         if viz_type is None:
+            add_message(message=("Display Type is unknown: cannot identify VNC/DCV. "
+                                 "Interactive Submission might fail.\n"
+                                 "Contact cluster administrator."),
+                        title="Display Type Error", icon="!")
             msg = "Warning: Unknown Display Type!!"
             viz_type = ''
 
