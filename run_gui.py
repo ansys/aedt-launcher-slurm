@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.9"
+__version__ = "v3.1.10"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -779,8 +779,10 @@ class LauncherWindow(GUIFrame):
                 total_cores = cores_per_node * num_nodes
                 command += ["--nodes", f"{num_nodes}-{num_nodes}", "--ntasks", str(total_cores)]
 
-            if self.m_nodes_list_checkbox.Value and self.m_nodes_list.Value:
-                command += ["--nodelist", self.m_nodes_list.Value]
+            nodes_list_str = self.m_nodes_list.Value
+            nodes_list_str = nodes_list_str.replace(" ", "")
+            if self.m_nodes_list_checkbox.Value and nodes_list_str:
+                command += ["--nodelist", nodes_list_str]
 
             if reservation:
                 if not reservation_id:
