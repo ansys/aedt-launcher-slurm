@@ -33,5 +33,8 @@
         "ottc02lm": {"cores": 32, "ram": 370},
         "ottc02vlm": {"cores": 32, "ram": 750}
     },
-    "default_queue": "ottc01"
+    "default_queue": "ottc01",
+    "environment_vars": {
+        "ANS_NODEPCHECK": 1
+    }
 }

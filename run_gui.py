@@ -66,6 +66,8 @@ try:
     default_queue = cluster_config["default_queue"]
 
     project_path = cluster_config["user_project_path_root"]
+
+    admin_env_vars = cluster_config.pop("environment_vars", None)
 except KeyError as key_e:
     print(("\nConfiguration file is wrong!\nCheck format of {} \nOnly double quotes are allowed." +
           "\nFollowing key does not exist: {}").format(cluster_configuration_file, key_e.args[0]))
@@ -740,9 +742,13 @@ class LauncherWindow(GUIFrame):
         aedt_version = self.m_select_version1.Value
         aedt_path = install_dir[aedt_version]
 
-        env = "ALL,ANS_NODEPCHECK=1"
+        env = "ALL"
         if self.env_var_text.Value:
             env += "," + self.env_var_text.Value
+
+        if admin_env_vars:
+            env_list = [f"{env_var}={env_val}" for env_var, env_val in admin_env_vars.items()]
+            env += "," + ",".join(env_list)
 
         # verify that no double commas, spaces, etc
         if env:
@@ -796,6 +802,7 @@ class LauncherWindow(GUIFrame):
             aedt_str = " ".join([os.path.join(aedt_path, "ansysedt"), "-machinelist", f"num={total_cores}"])
             command += ["--wrap", f'"{aedt_str}"']
             command = " ".join(command)  # convert to string to avoid escaping characters
+            print(f"Execute with {command}")
             try:
                 output = subprocess.check_output(
                     command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
