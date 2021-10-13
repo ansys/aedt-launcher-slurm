@@ -28,7 +28,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.11"
+__version__ = "v3.1.12"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -730,6 +730,37 @@ class LauncherWindow(GUIFrame):
 
         threading.Thread(target=self.open_overwatch, daemon=True).start()
 
+    @staticmethod
+    def check_display_var(env):
+        """
+        Validate that DISPLAY variable follow convention hostname:display_number
+        :param env: (str) already constructed variables
+        :return: env (str): updated environment variables string
+        """
+
+        display_var = os.getenv("DISPLAY", "")
+        if not display_var:
+            msg = "DISPLAY environment variable is not specified. Contact cluster admin"
+            add_message(msg, "Environment error", icon="!")
+            raise EnvironmentError(msg)
+
+        if not display_var.split(":")[0]:
+            # hostname is empty
+            hostname_var = os.getenv("HOSTNAME", "")
+            if not hostname_var:
+                msg = "HOSTNAME environment variable is not specified. Contact cluster admin"
+                add_message(msg, "Environment error", icon="!")
+                raise EnvironmentError(msg)
+
+            if ":" not in display_var:
+                msg = "DISPLAY hasn't session number specified. Contact cluster admin"
+                add_message(msg, "Environment error", icon="!")
+                raise EnvironmentError(msg)
+
+            env += f",DISPLAY={hostname_var}:{display_var.split(':')[1]}"
+
+        return env
+
     def click_launch(self, _unused_event):
         """Depending on the choice of the user invokes AEDT on visual node or simply for pre/post"""
         check_ssh()
@@ -778,6 +809,8 @@ class LauncherWindow(GUIFrame):
             print("Error sending statistics")
 
         if op_mode == 3:
+            # interactive submission
+            env = self.check_display_var(env)
             command = [scheduler, "--job-name", "aedt", "--partition", queue, "--export", env]
 
             if allocation_rule == 0:
