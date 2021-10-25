@@ -1,6 +1,9 @@
-# IMPORTANT usage note:
-# place slurm_settings.areg at the same folder where script is located
-# modify cluster_configuration.json according to cluster configuration and builds available
+"""
+IMPORTANT usage note:
+place slurm_settings.areg at the same folder where script is located
+modify cluster_configuration.json according to cluster configuration
+and builds available
+"""
 
 import errno
 import getpass
@@ -99,7 +102,7 @@ class ClearMsgPopupMenu(wx.Menu):
         self.Append(mmi)
         self.Bind(wx.EVT_MENU, self.on_clear, mmi)
 
-    def on_clear(self, _unused_event):
+    def on_clear(self, *args):
         self.parent.scheduler_msg_viewlist.DeleteAllItems()
         self.parent.log_data = {"Message List": [],
                                 "PID List": [],
@@ -139,11 +142,13 @@ class ClusterLoadUpdateThread(threading.Thread):
         self._parent = parent
 
     def run(self):
-        """Overrides Thread.run. Don't call this directly its called internally
-        when you call Thread.start().
+        """Overrides Thread.run.
 
-        Gets cluster load every 60 seconds. 0.5s step is used to be able to stop subthread earlier
-        by triggering parent.running
+        Don't call this directly its called internally when you call
+        Thread.start().
+
+        Gets cluster load every 60 seconds. 0.5s step is used to be
+        able to stop subthread earlier by triggering parent.running
         Update a list of jobs status for a user every 5s
         """
         counter = 120
@@ -227,11 +232,7 @@ class ClusterLoadUpdateThread(threading.Thread):
                 os.remove(e_file)
 
     def parse_cluster_load(self):
-        """
-        Function that parses data from Overwatch and generates dictionary with cluster load for each queue
-        Returns:
-
-        """
+        """Parse data from Overwatch and generates dictionary with cluster load for each queue."""
         # with requests.get(overwatch_url, params={"cluster": "ott"}) as url_req:  # could be used with params
         with requests.get(f"{overwatch_api_url}/api/v1/overwatch/minclusterstatus") as url_req:
             cluster_data = url_req.json()
@@ -411,9 +412,11 @@ class LauncherWindow(GUIFrame):
 
     @staticmethod
     def ensure_app_folder():
-        """
-        create a path for .aedt folder if first run
-        :return: (str) path to app directory
+        """Create a path for .aedt folder if first run
+
+        Returns
+        str
+            Path to application directory.
         """
         user_dir = os.path.expanduser('~')
         app_dir = os.path.join(user_dir, ".aedt")
@@ -426,8 +429,8 @@ class LauncherWindow(GUIFrame):
 
         return app_dir
 
-    def on_signal(self, _unused_event):
-        """Update UI when signal comes from subthread. Should be updated always from main thread"""
+    def on_signal(self, *args):
+        """Update UI when signal comes from subthread. Should be updated always from main thread."""
         # run in list to keep order
         for i, queue_name in enumerate(queue_dict):
             self.load_grid.SetCellValue(i, 0, str(queue_dict[queue_name]["avail_cores"]))
@@ -437,7 +440,7 @@ class LauncherWindow(GUIFrame):
             self.load_grid.SetCellValue(i, 4, str(queue_dict[queue_name]["total_cores"]))
 
     def read_custom_builds(self):
-        """Reads all specified in JSON file custom builds"""
+        """Reads all specified in JSON file custom builds."""
         if os.path.isfile(self.user_build_json):
             try:
                 with open(self.user_build_json) as file:
@@ -462,7 +465,7 @@ class LauncherWindow(GUIFrame):
             init_combobox(install_dir.keys(), self.m_select_version1, default_version)
 
     def write_custom_build(self):
-        """Function to create a user JSON file with custom builds and to update selector"""
+        """Create a user JSON file with custom builds and to update selector."""
         num_rows = self.user_build_viewlist.GetItemCount()
         self.builds_data = {}
 
@@ -475,10 +478,8 @@ class LauncherWindow(GUIFrame):
         with open(self.user_build_json, "w") as file:
             json.dump(self.builds_data, file, indent=4)
 
-    def settings_save(self, _unused_event):
-        """
-            Take all values from the UI and dump them to the .json file
-        """
+    def settings_save(self, *args):
+        """Take all values from the UI and dump them to the .json file."""
         self.default_settings = {
             "version": __version__,
             "queue": self.queue_dropmenu.GetValue(),
@@ -497,9 +498,7 @@ class LauncherWindow(GUIFrame):
             json.dump(self.default_settings, file, indent=4)
 
     def settings_load(self):
-        """
-            Read settings file and populate UI with values
-        """
+        """Read settings file and populate UI with values."""
         with open(self.default_settings_json, "r") as file:
             self.default_settings = json.load(file)
 
@@ -529,20 +528,26 @@ class LauncherWindow(GUIFrame):
 
     @staticmethod
     def construct_node_specs_str(queue):
-        """
-        Construct node description string from cluster configuration data
-        Args:
-            queue: queue for which we need a node description
+        """Construct node description string from cluster configuration data
 
-        Returns (str): string for the UI with number of cores and RAM per node
+        Parameters
+        queue
+            Queue for which we need a node description
+
+        Returns
+        -------
+        str
+            Human readable string for the UI with number of cores and
+            RAM per node.
 
         """
         node_str = f"({queue_config_dict[queue]['cores']} Cores, {queue_config_dict[queue]['ram']}GB RAM per node)"
         return node_str
 
-    def settings_reset(self, _unused_event):
-        """
-            Fired on click to reset to factory. Will remove settings previously set by user
+    def settings_reset(self, *args):
+        """Remove settings previously set by user.
+
+        Fired on click to reset to factory.
         """
         if os.path.isfile(self.default_settings_json):
             os.remove(self.default_settings_json)
@@ -551,7 +556,7 @@ class LauncherWindow(GUIFrame):
     def timer_stop(self):
         self.running = False
 
-    def evt_num_cores_nodes_change(self, _unused=None):
+    def evt_num_cores_nodes_change(self, *args):
         try:
             num_cores_or_nodes = int(self.m_numcore.Value)
         except ValueError:
@@ -576,17 +581,17 @@ class LauncherWindow(GUIFrame):
 
         self.m_summary_caption.LabelText = summary_msg
 
-    def evt_select_allocation(self, _unused=None):
-        """ Callback when user changes allocation strategy"""
+    def evt_select_allocation(self, *args):
+        """Callback when user changes allocation strategy."""
         if self.m_alloc_dropmenu.GetCurrentSelection() == 0:
             self.m_num_cores_caption.LabelText = "# Cores"
         else:
             self.m_num_cores_caption.LabelText = "# Nodes"
 
-    def select_mode(self, _unused_event=None):
-        """
-            Callback invoked on change of the mode Pre/Post or Interactive.
-            Grey out options that are not applicable for Pre/Post
+    def select_mode(self, *args):
+        """Callback invoked on change of the mode Pre/Post or Interactive.
+
+        Grey out options that are not applicable for Pre/Post.
         """
         sel = self.submit_mode_radiobox.Selection
         if sel == 3:
@@ -619,10 +624,8 @@ class LauncherWindow(GUIFrame):
         self.evt_select_allocation()
         self.evt_num_cores_nodes_change()
 
-    def update_job_status(self, _unused_event):
-        """
-            Event is called to update a viewlist with current running jobs from main thread (thread safity)
-        """
+    def update_job_status(self, *args):
+        """Event is called to update a viewlist with current running jobs from main thread (thread safity)."""
         self.qstat_viewlist.DeleteAllItems()
         for q_dict in qstat_list:
             self.qstat_viewlist.AppendItem([
@@ -644,12 +647,8 @@ class LauncherWindow(GUIFrame):
                 tab_data = msg[0:3]
                 self.scheduler_msg_viewlist.PrependItem(tab_data)
 
-    def add_log_entry(self, _unused_event=None):
-        """
-        Add new entry to the Scheduler Messages Window
-        :param _unused_event: not used
-        :return: None
-        """
+    def add_log_entry(self, *args):
+        """Add new entry to the Scheduler Messages Window."""
         scheduler = log_dict.get("scheduler", True)
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         message = wordwrap(log_dict["msg"], 600, wx.ClientDC(self))
@@ -662,14 +661,14 @@ class LauncherWindow(GUIFrame):
         with open(self.logfile, 'w') as fa:
             json.dump(self.log_data, fa, indent=4)
 
-    def rmb_on_scheduler_msg_list(self, _unused_event):
-        """
-            When click RMB on scheduler message list it will propose a context menu with choice to delete all messages
+    def rmb_on_scheduler_msg_list(self, *args):
+        """When clicking RMB on the scheduler message list it will
+        propose a context menu with choice to delete all messages.
         """
         position = wx.ContextMenuEvent(type=wx.wxEVT_NULL)
         self.PopupMenu(ClearMsgPopupMenu(self), position.GetPosition())
 
-    def leftclick_processtable(self, _unused_event):
+    def leftclick_processtable(self, *args):
         """On double click on process row will propose to abort running job"""
         row = self.qstat_viewlist.GetSelectedRow()
         pid = self.qstat_viewlist.GetTextValue(row, 0)
@@ -690,39 +689,38 @@ class LauncherWindow(GUIFrame):
             log_dict["scheduler"] = False
             self.add_log_entry()
 
-    def select_queue(self, _unused_event=None):
-        """
-        Called when user selects a value in Queue drop down menu (or during __init__ to fill the UI).
-        Sets PE and number of cores for each queue
-        :param _unused_event: default event of UI component
-        :return: None
+    def select_queue(self, *args):
+        """Called when user selects a value in Queue drop down menu.
+
+        Also called during __init__ to fill the UI.  Sets PE and
+        number of cores for each queue.
         """
         queue_value = self.queue_dropmenu.GetValue()
 
         self.m_node_label.LabelText = self.construct_node_specs_str(queue_value)
         self.evt_num_cores_nodes_change()
 
-    def evt_node_list_check(self, _unused_event=None):
-        """
-            callback called when clicked "Specify node list" options.
-            Hides/Shows input field for node list
+    def evt_node_list_check(self, *args):
+        """Callback called when clicked "Specify node list" options.
+
+        Hides/Shows input field for node list.
         """
         if self.m_nodes_list_checkbox.Value:
             self.m_nodes_list.Show()
         else:
             self.m_nodes_list.Hide()
 
-    def on_reserve_check(self, _unused_event=None):
-        """
-            callback called when clicked Reservation
-            Will Hide/Show input field for reservation ID
+    def on_reserve_check(self, *args):
+        """Callback called when clicked Reservation.
+
+        Will Hide/Show input field for reservation ID.
         """
         if self.m_reserved_checkbox.Value:
             self.reservation_id_text.Show()
         else:
             self.reservation_id_text.Hide()
 
-    def submit_overwatch_thread(self, _unused_event):
+    def submit_overwatch_thread(self, *args):
         """ Opens OverWatch on button click """
         if not os.path.isfile(FIREFOX):
             add_message("Firefox is not installed on the cluster", title="Error", icon="!")
@@ -732,10 +730,17 @@ class LauncherWindow(GUIFrame):
 
     @staticmethod
     def check_display_var(env):
-        """
-        Validate that DISPLAY variable follow convention hostname:display_number
-        :param env: (str) already constructed variables
-        :return: env (str): updated environment variables string
+        """Validate that DISPLAY variable follow convention hostname:display_number
+
+        Parameters
+        ----------
+        env : str
+            Environment variables string.
+
+        Returns
+        -------
+        str
+            Updated environment variables string.
         """
 
         display_var = os.getenv("DISPLAY", "")
@@ -761,7 +766,7 @@ class LauncherWindow(GUIFrame):
 
         return env
 
-    def click_launch(self, _unused_event):
+    def click_launch(self, *args):
         """Depending on the choice of the user invokes AEDT on visual node or simply for pre/post"""
         check_ssh()
 
@@ -863,11 +868,18 @@ class LauncherWindow(GUIFrame):
             threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env, command_key,)).start()
 
     def check_reservation(self):
-        """
-        Validate if user wants to run with predefined reservation. Create a reservation argument for interactive mode
-        or create .sge_request file with argument for non graphical
-        :return: (reservation (bool), Reservation ID (str)) True if reservation was checked AND reservation ID if
-        the value is correct
+        """Validate if user wants to run with predefined reservation.
+
+        Create a reservation argument for interactive mode or create
+        .sge_request file with argument for non graphical
+
+        Returns
+        -------
+        bool
+            ``True`` if reservation was checked AND reservation ID if the
+            value is correct.
+        str
+            Reservation ID.
         """
         reservation = self.m_reserved_checkbox.Value
         ar = ""
@@ -880,20 +892,23 @@ class LauncherWindow(GUIFrame):
         return reservation, ar
 
     def usage_stat(self):
-        """ Collect usage statistics of the launcher """
+        """Collect usage statistics of the launcher."""
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         stat_file = os.path.join(self.app_dir, "run.log")
         with open(stat_file, "a") as file:
             file.write(self.m_select_version1.Value + "\t" + timestamp + "\n")
 
     def send_statistics(self, version, job_type):
-        """
-        Send usage statistics to the database.
-        Args:
-            version: version of EDT used
-            job_type: interactive or NG
+        """Send usage statistics to the database.
 
-        Returns: None
+        Parameters
+        ----------
+        version : str
+            Version of EDT used.
+
+        job_type : str
+            Interactive or non-graphical job type.
+
         """
 
         client = InfluxDBClient(host=STATISTICS_SERVER, port=STATISTICS_PORT)
@@ -920,8 +935,10 @@ class LauncherWindow(GUIFrame):
         client.write_points(json_body)
 
     def update_registry(self, aedt_path):
-        """
-        Function to set registry for each run of EDT since each run is happening on different Linux node.
+        """Set registry for each run of EDT.
+
+        This is necessary because each run occurs on a different Linux node.
+
         Disables:
         1. Question on product improvement
         2. Question on Project directory, this is grabbed from UI
@@ -932,8 +949,8 @@ class LauncherWindow(GUIFrame):
         1. EDT Installation path
         2. Slurm scheduler as default
 
-        :param aedt_path: path to the installation directory of EDT
-        :return: None
+        aedt_path : str
+            Path to the installation directory of EDT.
         """
         if not os.path.isdir(self.path_textbox.Value):
             os.mkdir(self.path_textbox.Value)
@@ -969,18 +986,18 @@ class LauncherWindow(GUIFrame):
         for command in commands:
             subprocess.call(command_base + command)
 
-    def m_update_msg_list(self, _unused_event):
+    def m_update_msg_list(self, *args):
         """ Fired when user clicks 'Show all messages' for Scheduler messages window"""
         self.update_msg_list()
 
-    def delete_row(self, _unused_event):
+    def delete_row(self, *args):
         """By clicking on Delete Row button delete row and rewrite json file with builds"""
         row = self.user_build_viewlist.GetSelectedRow()
         if row != -1:
             self.user_build_viewlist.DeleteItem(row)
             self.write_custom_build()
 
-    def add_new_build(self, _unused_event):
+    def add_new_build(self, *args):
         """By click on Add New Build opens file dialogue to select path and input box to set name.
         At the end we update JSON file with custom builds"""
         get_dir_dialogue = wx.DirDialog(None, "Choose a Linux64 directory:",
@@ -1018,8 +1035,11 @@ class LauncherWindow(GUIFrame):
 
         self.write_custom_build()
 
-    def set_project_path(self, _unused_event):
-        """Invoked when clicked on "..." set_path_button. Creates a dialogue where user can select directory"""
+    def set_project_path(self, *args):
+        """Invoked when clicked on "..." set_path_button.
+
+        Creates a dialogue where user can select directory.
+        """
         get_dir_dialogue = wx.DirDialog(None, "Choose directory:", style=wx.DD_DEFAULT_STYLE)
         if get_dir_dialogue.ShowModal() == wx.ID_OK:
             path = get_dir_dialogue.GetPath()
@@ -1030,8 +1050,11 @@ class LauncherWindow(GUIFrame):
 
         self.path_textbox.Value = path
 
-    def shutdown_app(self, _unused_event):
-        """Exit from app by clicking X or Close button. Kill the process to kill all child threads"""
+    def shutdown_app(self, *args):
+        """Exit from app by clicking X or Close button.
+
+        Kill the process to kill all child threads.
+        """
         self.timer_stop()
         lock_file = os.path.join(self.app_dir, 'ui.lock')
         try:
@@ -1046,18 +1069,22 @@ class LauncherWindow(GUIFrame):
         os.kill(os.getpid(), signal.SIGINT)
 
     def open_overwatch(self):
-        """ Open Overwatch with java """
+        """Open Overwatch with java."""
         command = [FIREFOX, f"{overwatch_url}/users/{self.username}"]
         subprocess.call(command)
 
     @staticmethod
     def _submit_batch_thread(aedt_path, env, command_key):
-        """
-            Start EDT in pre/post mode
-            :param aedt_path: path to the EDT root
-            :param env: string with list of environment variables
-            :param command_key: add key to open Submit or Monitor Job dialog
-            :return: None
+        """Start EDT in pre/post mode.
+
+        Parameters
+        ----------
+        aedt_path : str
+            Path to the EDT root.
+        env : str
+            String with list of environment variables.
+        command_key :
+            Add key to open Submit or Monitor Job dialog.
         """
 
         env_vars = os.environ.copy()
@@ -1071,7 +1098,7 @@ class LauncherWindow(GUIFrame):
 
 
 def check_ssh():
-    """verify that all passwordless SSH are in place"""
+    """Verify that all passwordless SSH are in place."""
     ssh_path = os.path.join(os.environ["HOME"], ".ssh")
     for file in ["authorized_keys", "config"]:
         if not os.path.isfile(os.path.join(ssh_path, file)):
@@ -1084,12 +1111,22 @@ def check_ssh():
 
 
 def add_message(message, title="", icon="?"):
-    """
-    Create a dialog with different set of buttons
-    :param message: Message you want to show
-    :param title:
-    :param icon: depending on the input will create either question dialogue (?), error (!) or just information
-    :return Answer of the user eg wx.OK
+    """Create a dialog with different set of buttons.
+
+    Parameters
+    ----------
+    message : str
+        Message you want to show.
+    title : str, optional
+        Message window title.
+    icon : str, optional
+        Depending on the input will create either question dialogue
+        (?), error (!) or just an information dialog.
+
+    Returns
+    -------
+    int
+        Response from the user (for example, wx.OK).
     """
 
     if icon == "?":
@@ -1107,15 +1144,18 @@ def add_message(message, title="", icon="?"):
 
 
 def init_combobox(entry_list, combobox, default_value=''):
-    """
-    Fills a wx.Combobox element with the entries in a list
-    Input parameters
-    :param entry_list: Iterative object of text entries to appear in the combobox element
-    :param combobox: object pointing to the combobox element
-    :param default_value: (optional) default value (must be present in the entry list, otherwise will be ignored)
+    """Fills a wx.Combobox element with the entries in a list.
 
-    Outputs
-    :return: None
+    Parameters
+    ----------
+    entry_list : list
+        List of text entries to appear in the combobox element.
+    combobox : wx.Combobox
+        object pointing to the combobox element
+    default_value : str, optional
+        Default value (must be present in the entry list, otherwise
+        will be ignored)
+
     """
     combobox.Clear()
     index = 0
@@ -1127,7 +1167,10 @@ def init_combobox(entry_list, combobox, default_value=''):
 
 
 def main():
-    """Main function to generate UI. Validate that only one instance is opened."""
+    """Main function to generate UI.
+
+    Validate that only one instance is opened.
+    """
     # this 0.7 sleep prevents double open if user has single click launch in Linux and performs double click
     time.sleep(0.7)
 
@@ -1135,9 +1178,12 @@ def main():
 
     lock_file = os.path.join(LauncherWindow.ensure_app_folder(), 'ui.lock')
     if os.path.exists(lock_file):
-        result = add_message(("Application was not properly closed or you have multiple instances opened. " +
-                              "Do you really want to open new instance?"),
-                             "Instance error", "?")
+        result = add_message(
+            ("Application was not properly closed or you have multiple instances opened. "
+             "Do you really want to open new instance?"
+             ),
+            "Instance error", "?"
+        )
         if result != wx.ID_OK:
             return
     else:
