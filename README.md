@@ -1,7 +1,8 @@
 ## Description
-This project aims to create a user friendly interface to submit interactive Electronics Desktop (AEDT) jobs in an Linux environment.
-An interactive job means that the job will be submitted to the compute node using the Slurm scheduling system and will send
-back the desktop as a VNC session. This allows you to run resource
+This project aims to create a user-friendly interface to submit interactive Ansys Electronics Desktop (AEDT) jobs 
+in a Linux environment.  
+An interactive job means that the job will be submitted to the compute node using the Slurm scheduling system and 
+will send back the desktop as a VNC session. This allows you to run resource 
 intensive projects on powerful machines and interact with the AEDT graphical user interface.
 
 
