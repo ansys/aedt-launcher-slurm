@@ -1,0 +1,40 @@
+{
+    "path_to_ssh": "/nfs/admin/run_me_first.sh",
+    "overwatch_url": "http://ott.overwatch.ansys.com",
+    "overwatch_api_url": "http://ottbackend.overwatch.ansys.com:8080",
+    "user_project_path_root": "/lus01",
+    "vnc_nodes": [
+        "ottvnc"
+    ],
+    "dcv_nodes": [
+        "eurgs",
+        "dcv"
+    ],
+    "default_version": "2021 R1",
+    "install_dir": {
+        "R18.2": "/software/ANSYS_EM_182/AnsysEM18.2/Linux64",
+        "R19.0": "/software/ANSYS_EM_190/AnsysEM19.0/Linux64",
+        "R19.1": "/software/ANSYS_EM_191/AnsysEM19.1/Linux64",
+        "R19.2": "/software/ANSYS_EM_192/AnsysEM19.2/Linux64",
+        "2019 R1": "/software/ANSYS_EM_2019R1/AnsysEM19.3/Linux64",
+        "2019 R2": "/software/ANSYS_EM_2019R2/AnsysEM19.4/Linux64",
+        "2019 R3": "/software/ANSYS_EM_2019R3/AnsysEM19.5/Linux64",
+        "2020 R1": "/software/ANSYS_EM_2020R1/AnsysEM20.1/Linux64",
+        "2020 R2": "/software/ANSYS_EM_2020R2/AnsysEM20.2/Linux64",
+	    "2021 R1": "/software/ANSYS_EM_2021R1/AnsysEM21.1/Linux64",
+	    "2021 R2": "/software/ANSYS_EM_2021R2/AnsysEM21.2/Linux64",
+        "2022 R1_Daily_Cert": "/daily_builds/linx64/v221_EBU_Certified_Daily/AnsysEM/v221/Linux64",
+        "2022 R1_Weekly_Cert": "/daily_builds/linx64/v221_EBU_Certified_Weekly/AnsysEM/v221/Linux64"
+    },
+    "queue_config_dict": {
+        "ottc01": {"cores": 28, "ram": 976},
+        "euc09lm": {"cores": 28, "ram": 976},
+        "ottc02": {"cores": 32, "ram": 976},
+        "ottc02lm": {"cores": 32, "ram": 1612},
+        "ottc02vlm": {"cores": 32, "ram": 6144}
+    },
+    "default_queue": "ottc01",
+    "environment_vars": {
+        "ANS_NODEPCHECK": 1
+    }
+}
