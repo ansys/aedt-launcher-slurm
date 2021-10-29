@@ -1,3 +1,10 @@
+## [v3.2.0](https://github.com/beliaev-maksim/linux_hpc_launcher_slurm/compare/v3.1.12...v3.2.0)
+* enable product improvement by default
+* remove unused function
+* added `--debug` flag for future expansions
+* print `scancel` to terminal on cancel
+* Do not export `ALL` variable when submit job 
+
 ## [v3.1.12](https://github.com/beliaev-maksim/linux_hpc_launcher_slurm/compare/v3.1.11...v3.1.12)
 * prepend HOSTNAME to DISPLAY environment variable, 
 eg if `DISPLAY=:3`, it will be converted to `DISPLAY=ottvnc3.ansys.com:3`
