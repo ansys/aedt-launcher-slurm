@@ -4,12 +4,13 @@ place slurm_settings.areg at the same folder where script is located
 modify cluster_configuration.json according to cluster configuration
 and builds available
 """
-
+import argparse
 import errno
 import getpass
 import json
 import os
 import re
+
 import requests
 import shutil
 import signal
@@ -31,7 +32,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.12"
+__version__ = "v3.1.13"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -61,7 +62,7 @@ try:
     default_version = cluster_config["default_version"]
     install_dir = cluster_config["install_dir"]
 
-    # define default number of cores for the selected PE (interactive mode)
+    # define queue dependent number of cores and RAM per node (interactive mode)
     queue_config_dict = cluster_config["queue_config_dict"]
 
     # dictionary in which we will pop up dynamically information about the load from the OverWatch
@@ -75,6 +76,12 @@ except KeyError as key_e:
     print(("\nConfiguration file is wrong!\nCheck format of {} \nOnly double quotes are allowed." +
           "\nFollowing key does not exist: {}").format(cluster_configuration_file, key_e.args[0]))
     sys.exit()
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--debug", help="Debug mode", action="store_true")
+cli_args = parser.parse_args()
+DEBUG_MODE = cli_args.debug
 
 # create keys for usage statistics that would be updated later
 queue_dict = {name: {} for name in queue_config_dict}
@@ -309,7 +316,7 @@ class LauncherWindow(GUIFrame):
             viz_type = ''
 
         # Set the status bars on the bottom of the window
-        self.m_status_bar.SetStatusText('User: ' + self.username + ' on ' + viz_type + ' node ' + self.display_node, 0)
+        self.m_status_bar.SetStatusText(f'User: {self.username} on {viz_type} node {self.display_node}', 0)
         self.m_status_bar.SetStatusText(msg, 1)
         self.m_status_bar.SetStatusWidths([500, -1])
 
@@ -625,7 +632,7 @@ class LauncherWindow(GUIFrame):
         self.evt_num_cores_nodes_change()
 
     def update_job_status(self, *args):
-        """Event is called to update a viewlist with current running jobs from main thread (thread safity)."""
+        """Event is called to update a viewlist with current running jobs from main thread (thread safety)."""
         self.qstat_viewlist.DeleteAllItems()
         for q_dict in qstat_list:
             self.qstat_viewlist.AppendItem([
@@ -670,13 +677,20 @@ class LauncherWindow(GUIFrame):
 
     def leftclick_processtable(self, *args):
         """On double click on process row will propose to abort running job"""
+        self.cancel_job()
+
+    def cancel_job(self):
+        """
+        Send Slurm scancel command
+        :return:
+        """
         row = self.qstat_viewlist.GetSelectedRow()
         pid = self.qstat_viewlist.GetTextValue(row, 0)
-
         result = add_message("Abort Queue Process {}?\n".format(pid), "Confirm Abort", "?")
-
         if result == wx.ID_OK:
-            subprocess.call('scancel {}'.format(pid), shell=True)
+            command = f'scancel {pid}'
+            subprocess.call(command, shell=True)
+            print(f"Job cancelled via: {command}")
 
             msg = "Job {} cancelled from GUI".format(pid)
             try:
@@ -891,13 +905,6 @@ class LauncherWindow(GUIFrame):
 
         return reservation, ar
 
-    def usage_stat(self):
-        """Collect usage statistics of the launcher."""
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        stat_file = os.path.join(self.app_dir, "run.log")
-        with open(stat_file, "a") as file:
-            file.write(self.m_select_version1.Value + "\t" + timestamp + "\n")
-
     def send_statistics(self, version, job_type):
         """Send usage statistics to the database.
 
@@ -910,6 +917,8 @@ class LauncherWindow(GUIFrame):
             Interactive or non-graphical job type.
 
         """
+        if DEBUG_MODE:
+            return
 
         client = InfluxDBClient(host=STATISTICS_SERVER, port=STATISTICS_PORT)
         db_name = "aedt_hpc_launcher"
@@ -964,7 +973,7 @@ class LauncherWindow(GUIFrame):
 
         # disable question about participation in product improvement
         commands.append(["-RegistryKey", "Desktop/Settings/ProjectOptions/ProductImprovementOptStatus",
-                         "-RegistryValue", "0"])
+                         "-RegistryValue", "1"])
 
         # set installation path
         commands.append(["-RegistryKey", 'Desktop/InstallationDirectory', "-RegistryValue", aedt_path])
