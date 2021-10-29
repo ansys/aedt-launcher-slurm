@@ -32,7 +32,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.2.0"
+__version__ = "v3.2.1"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -48,8 +48,11 @@ except FileNotFoundError:
     print("\nConfiguration file does not exist!\nCheck existence of " + cluster_configuration_file)
     sys.exit()
 except json.decoder.JSONDecodeError:
-    print("\nConfiguration file is wrong!\nCheck format of {} \nOnly double quotes are allowed!".format(
-        cluster_configuration_file))
+    print(
+        "\nConfiguration file is wrong!\nCheck format of {} \nOnly double quotes are allowed!".format(
+            cluster_configuration_file
+        )
+    )
     sys.exit()
 
 
@@ -73,8 +76,12 @@ try:
 
     admin_env_vars = cluster_config.pop("environment_vars", None)
 except KeyError as key_e:
-    print(("\nConfiguration file is wrong!\nCheck format of {} \nOnly double quotes are allowed." +
-          "\nFollowing key does not exist: {}").format(cluster_configuration_file, key_e.args[0]))
+    print(
+        (
+            "\nConfiguration file is wrong!\nCheck format of {} \nOnly double quotes are allowed."
+            + "\nFollowing key does not exist: {}"
+        ).format(cluster_configuration_file, key_e.args[0])
+    )
     sys.exit()
 
 
@@ -94,9 +101,7 @@ for queue_val in queue_dict.values():
 
 # list to keep information about running jobs
 qstat_list = []
-log_dict = {"pid": "0",
-            "msg": "None",
-            "scheduler": False}
+log_dict = {"pid": "0", "msg": "None", "scheduler": False}
 
 
 class ClearMsgPopupMenu(wx.Menu):
@@ -105,15 +110,13 @@ class ClearMsgPopupMenu(wx.Menu):
 
         self.parent = parent
 
-        mmi = wx.MenuItem(self, wx.NewId(), 'Clear All Messages')
+        mmi = wx.MenuItem(self, wx.NewId(), "Clear All Messages")
         self.Append(mmi)
         self.Bind(wx.EVT_MENU, self.on_clear, mmi)
 
     def on_clear(self, *args):
         self.parent.scheduler_msg_viewlist.DeleteAllItems()
-        self.parent.log_data = {"Message List": [],
-                                "PID List": [],
-                                "GUI Data": []}
+        self.parent.log_data = {"Message List": [], "PID List": [], "GUI Data": []}
 
         if os.path.isfile(self.parent.logfile):
             os.remove(self.parent.logfile)
@@ -139,6 +142,7 @@ SIGNAL_EVT_BAR = wx.PyEventBinder(NEW_SIGNAL_EVT_BAR, 1)
 
 class SignalEvent(wx.PyCommandEvent):
     """Event to signal that we are ready to update the plot"""
+
     def __init__(self, etype, eid):
         """Creates the event object"""
         wx.PyCommandEvent.__init__(self, etype, eid)
@@ -200,42 +204,44 @@ class ClusterLoadUpdateThread(threading.Thread):
                     break
             else:
                 # it is neither VNC nor DCV job
-                qstat_list.append({
-                    "pid": pid,
-                    "state": state,
-                    "name": job_name,
-                    "user": user,
-                    "queue_data": node_list,
-                    "proc": num_cpu,
-                    "started": started
-                })
+                qstat_list.append(
+                    {
+                        "pid": pid,
+                        "state": state,
+                        "name": job_name,
+                        "user": user,
+                        "queue_data": node_list,
+                        "proc": num_cpu,
+                        "started": started,
+                    }
+                )
         evt = SignalEvent(NEW_SIGNAL_EVT_QSTAT, -1)
         wx.PostEvent(self._parent, evt)
         # get message texts
         for pid in self._parent.log_data["PID List"]:
-            o_file = os.path.join(self._parent.user_dir, 'ansysedt.o' + pid)
+            o_file = os.path.join(self._parent.user_dir, "ansysedt.o" + pid)
             if os.path.exists(o_file):
-                output_text = ''
-                with open(o_file, 'r') as file:
+                output_text = ""
+                with open(o_file, "r") as file:
                     for msgline in file:
                         output_text += msgline
-                    if output_text != '':
+                    if output_text != "":
                         log_dict["pid"] = pid
-                        log_dict["msg"] = 'Submit Message: ' + output_text
+                        log_dict["msg"] = "Submit Message: " + output_text
                         log_dict["scheduler"] = True
                         evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
                         wx.PostEvent(self._parent, evt)
                 os.remove(o_file)
 
-            e_file = os.path.join(self._parent.user_dir, 'ansysedt.e' + pid)
+            e_file = os.path.join(self._parent.user_dir, "ansysedt.e" + pid)
             if os.path.exists(e_file):
-                error_text = ''
-                with open(e_file, 'r') as file:
+                error_text = ""
+                with open(e_file, "r") as file:
                     for msgline in file:
                         error_text += msgline
-                    if error_text != '':
+                    if error_text != "":
                         log_dict["pid"] = pid
-                        log_dict["msg"] = 'Submit Error: ' + error_text
+                        log_dict["msg"] = "Submit Error: " + error_text
                         log_dict["scheduler"] = True
                         evt = SignalEvent(NEW_SIGNAL_EVT_LOG, -1)
                         wx.PostEvent(self._parent, evt)
@@ -244,6 +250,7 @@ class ClusterLoadUpdateThread(threading.Thread):
 
     def parse_cluster_load(self):
         """Parse data from Overwatch and generates dictionary with cluster load for each queue."""
+
         # with requests.get(overwatch_url, params={"cluster": "ott"}) as url_req:  # could be used with params
         with requests.get(f"{overwatch_api_url}/api/v1/overwatch/minclusterstatus") as url_req:
             cluster_data = url_req.json()
@@ -281,11 +288,11 @@ class FlashStatusBarThread(threading.Thread):
             alternating_color = wx.RED
 
         run_sec = 6
-        for i in range(run_sec*2):
+        for i in range(run_sec * 2):
             self._parent.bar_color = wx.WHITE if i % 2 == 0 else alternating_color
 
-            if i == run_sec*2 - 1:
-                self._parent.bar_text = 'No Status Message'
+            if i == run_sec * 2 - 1:
+                self._parent.bar_text = "No Status Message"
                 self._parent.bar_color = wx.WHITE
 
             evt = SignalEvent(NEW_SIGNAL_EVT_BAR, -1)
@@ -302,16 +309,16 @@ class LauncherWindow(GUIFrame):
         GUIFrame.SetTitle(self, f"Ansys Electronics Desktop Launcher {__version__}")
 
         # Get environment data
-        self.user_dir = os.path.expanduser('~')
+        self.user_dir = os.path.expanduser("~")
         self.app_dir = self.ensure_app_folder()
         self.username = getpass.getuser()
         self.hostname = socket.gethostname()
-        self.display_node = os.getenv('DISPLAY')
+        self.display_node = os.getenv("DISPLAY")
         self.squeue = 'squeue --me --format "%.18i %.9P %.8j %.8u %.2t %.4C %.20V %R"'
 
         # get paths
-        self.user_build_json = os.path.join(self.app_dir, 'user_build.json')
-        self.default_settings_json = os.path.join(self.app_dir, 'default.json')
+        self.user_build_json = os.path.join(self.app_dir, "user_build.json")
+        self.default_settings_json = os.path.join(self.app_dir, "default.json")
 
         self.builds_data = {}
         self.default_settings = {}
@@ -335,43 +342,46 @@ class LauncherWindow(GUIFrame):
         viz_type = None
         for node in cluster_config["vnc_nodes"]:
             if node in self.display_node:
-                viz_type = 'VNC'
+                viz_type = "VNC"
                 break
         else:
             for node in cluster_config["dcv_nodes"]:
                 if node in self.display_node:
-                    viz_type = 'DCV'
+                    viz_type = "DCV"
                     break
 
-        msg = 'No Status Message'
+        msg = "No Status Message"
         if viz_type is None:
-            add_message(message=("Display Type is unknown: cannot identify VNC/DCV. "
-                                 "Interactive Submission might fail.\n"
-                                 "Contact cluster administrator."),
-                        title="Display Type Error", icon="!")
+            add_message(
+                message=(
+                    "Display Type is unknown: cannot identify VNC/DCV. "
+                    "Interactive Submission might fail.\n"
+                    "Contact cluster administrator."
+                ),
+                title="Display Type Error",
+                icon="!",
+            )
             msg = "Warning: Unknown Display Type!!"
-            viz_type = ''
+            viz_type = ""
 
         # Set the status bars on the bottom of the window
-        self.m_status_bar.SetStatusText(f'User: {self.username} on {viz_type} node {self.display_node}', 0)
+        self.m_status_bar.SetStatusText(f"User: {self.username} on {viz_type} node {self.display_node}", 0)
         self.m_status_bar.SetStatusText(msg, 1)
         self.m_status_bar.SetStatusWidths([500, -1])
 
         init_combobox(install_dir.keys(), self.m_select_version1, default_version)
 
         # Setup Process Log
-        self.scheduler_msg_viewlist.AppendTextColumn('Timestamp', width=140)
-        self.scheduler_msg_viewlist.AppendTextColumn('PID', width=75)
-        self.scheduler_msg_viewlist.AppendTextColumn('Message')
-        self.logfile = os.path.join(self.app_dir, 'user_log_'+viz_type+'.json')
+        self.scheduler_msg_viewlist.AppendTextColumn("Timestamp", width=140)
+        self.scheduler_msg_viewlist.AppendTextColumn("PID", width=75)
+        self.scheduler_msg_viewlist.AppendTextColumn("Message")
+        self.logfile = os.path.join(self.app_dir, "user_log_" + viz_type + ".json")
 
         # read in previous log file
-        self.log_data = {"Message List": [],
-                         "PID List": [],
-                         "GUI Data": []}
+        self.log_data = {"Message List": [], "PID List": [], "GUI Data": []}
         if os.path.exists(self.logfile):
             try:
-                with open(self.logfile, 'r') as file:
+                with open(self.logfile, "r") as file:
                     self.log_data = json.load(file)
                     self.update_msg_list()
             except json.decoder.JSONDecodeError:
@@ -379,14 +389,14 @@ class LauncherWindow(GUIFrame):
                 os.remove(self.logfile)
 
         # initialize the table with User Defined Builds
-        self.user_build_viewlist.AppendTextColumn('Build Name', width=150)
-        self.user_build_viewlist.AppendTextColumn('Build Path', width=640)
+        self.user_build_viewlist.AppendTextColumn("Build Name", width=150)
+        self.user_build_viewlist.AppendTextColumn("Build Path", width=640)
 
         self.set_user_jobs_viewlist()
         self.set_cluster_load_table()
 
         # Disable Pre-Post/Interactive radio button in case of DCV
-        if viz_type == 'DCV':
+        if viz_type == "DCV":
             self.submit_mode_radiobox.EnableItem(3, False)
             self.submit_mode_radiobox.SetSelection(0)
         else:
@@ -429,26 +439,26 @@ class LauncherWindow(GUIFrame):
         wx.CallAfter(self.select_mode)
 
     def set_user_jobs_viewlist(self):
-        # Setup Process ViewList
-        self.qstat_viewlist.AppendTextColumn('PID', width=70)
-        self.qstat_viewlist.AppendTextColumn('State', width=50)
-        self.qstat_viewlist.AppendTextColumn('Name', width=80)
-        self.qstat_viewlist.AppendTextColumn('User', width=70)
-        self.qstat_viewlist.AppendTextColumn('Queue', width=200)
-        self.qstat_viewlist.AppendTextColumn('cpu', width=40)
-        self.qstat_viewlist.AppendTextColumn('Started', width=50)
+        """ Setup Process ViewList"""
+        self.qstat_viewlist.AppendTextColumn("PID", width=70)
+        self.qstat_viewlist.AppendTextColumn("State", width=50)
+        self.qstat_viewlist.AppendTextColumn("Name", width=80)
+        self.qstat_viewlist.AppendTextColumn("User", width=70)
+        self.qstat_viewlist.AppendTextColumn("Queue", width=200)
+        self.qstat_viewlist.AppendTextColumn("cpu", width=40)
+        self.qstat_viewlist.AppendTextColumn("Started", width=50)
 
     def set_cluster_load_table(self):
-        # setup cluster load table
-        self.load_grid.SetColLabelValue(0, 'Available')
+        """ setup cluster load table"""
+        self.load_grid.SetColLabelValue(0, "Available")
         self.load_grid.SetColSize(0, 80)
-        self.load_grid.SetColLabelValue(1, 'Used')
+        self.load_grid.SetColLabelValue(1, "Used")
         self.load_grid.SetColSize(1, 80)
-        self.load_grid.SetColLabelValue(2, 'Reserved')
+        self.load_grid.SetColLabelValue(2, "Reserved")
         self.load_grid.SetColSize(2, 80)
-        self.load_grid.SetColLabelValue(3, 'Failed')
+        self.load_grid.SetColLabelValue(3, "Failed")
         self.load_grid.SetColSize(3, 80)
-        self.load_grid.SetColLabelValue(4, 'Total')
+        self.load_grid.SetColLabelValue(4, "Total")
         self.load_grid.SetColSize(4, 80)
         for i, queue_key in enumerate(queue_dict):
             self.load_grid.AppendRows(1)
@@ -471,6 +481,7 @@ class LauncherWindow(GUIFrame):
         :param level: either "i" as information for green color or "!" as error for red color
         :return: None
         """
+
         self.bar_text = msg
         self.bar_level = level
         self.bar_color = wx.WHITE
@@ -487,7 +498,8 @@ class LauncherWindow(GUIFrame):
         str
             Path to application directory.
         """
-        user_dir = os.path.expanduser('~')
+
+        user_dir = os.path.expanduser("~")
         app_dir = os.path.join(user_dir, ".aedt")
         if not os.path.exists(app_dir):
             try:
@@ -500,6 +512,7 @@ class LauncherWindow(GUIFrame):
 
     def on_signal(self, *args):
         """Update UI when signal comes from subthread. Should be updated always from main thread."""
+
         # run in list to keep order
         for i, queue_name in enumerate(queue_dict):
             self.load_grid.SetCellValue(i, 0, str(queue_dict[queue_name]["avail_cores"]))
@@ -535,6 +548,7 @@ class LauncherWindow(GUIFrame):
 
     def write_custom_build(self):
         """Create a user JSON file with custom builds and to update selector."""
+
         num_rows = self.user_build_viewlist.GetItemCount()
         self.builds_data = {}
 
@@ -560,7 +574,7 @@ class LauncherWindow(GUIFrame):
             "node_list": self.m_nodes_list.Value,
             "project_path": self.path_textbox.Value,
             "use_reservation": self.m_reserved_checkbox.Value,
-            "reservation_id": self.reservation_id_text.Value
+            "reservation_id": self.reservation_id_text.Value,
         }
 
         with open(self.default_settings_json, "w") as file:
@@ -568,6 +582,7 @@ class LauncherWindow(GUIFrame):
 
     def settings_load(self):
         """Read settings file and populate UI with values."""
+
         with open(self.default_settings_json, "r") as file:
             self.default_settings = json.load(file)
 
@@ -592,8 +607,9 @@ class LauncherWindow(GUIFrame):
             queue_value = self.queue_dropmenu.GetValue()
             self.m_node_label.LabelText = self.construct_node_specs_str(queue_value)
         except wx._core.wxAssertionError:
-            add_message("UI was updated or default settings file was corrupted. Please save default settings again",
-                        "", "i")
+            add_message(
+                "UI was updated or default settings file was corrupted. Please save default settings again", "", "i"
+            )
 
     @staticmethod
     def construct_node_specs_str(queue):
@@ -608,8 +624,8 @@ class LauncherWindow(GUIFrame):
         str
             Human readable string for the UI with number of cores and
             RAM per node.
-
         """
+
         node_str = f"({queue_config_dict[queue]['cores']} Cores, {queue_config_dict[queue]['ram']}GB RAM per node)"
         return node_str
 
@@ -698,15 +714,17 @@ class LauncherWindow(GUIFrame):
         """Event is called to update a viewlist with current running jobs from main thread (thread safety)."""
         self.qstat_viewlist.DeleteAllItems()
         for q_dict in qstat_list:
-            self.qstat_viewlist.AppendItem([
-                q_dict["pid"],
-                q_dict["state"],
-                q_dict["name"],
-                q_dict["user"],
-                q_dict["queue_data"],
-                q_dict["proc"],
-                q_dict["started"]
-            ])
+            self.qstat_viewlist.AppendItem(
+                [
+                    q_dict["pid"],
+                    q_dict["state"],
+                    q_dict["name"],
+                    q_dict["user"],
+                    q_dict["queue_data"],
+                    q_dict["proc"],
+                    q_dict["started"],
+                ]
+            )
 
     def update_msg_list(self):
         """Update messages on checkbox and init from file"""
@@ -720,7 +738,7 @@ class LauncherWindow(GUIFrame):
     def add_log_entry(self, *args):
         """Add new entry to the Scheduler Messages Window."""
         scheduler = log_dict.get("scheduler", True)
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         message = wordwrap(log_dict["msg"], 600, wx.ClientDC(self))
         data = [timestamp, log_dict.get("pid", "0"), message, scheduler]
 
@@ -728,7 +746,7 @@ class LauncherWindow(GUIFrame):
             tab_data = data[0:3]
             self.scheduler_msg_viewlist.PrependItem(tab_data)
         self.log_data["Message List"].append(data)
-        with open(self.logfile, 'w') as fa:
+        with open(self.logfile, "w") as fa:
             json.dump(self.log_data, fa, indent=4)
 
     def rmb_on_scheduler_msg_list(self, *args):
@@ -751,7 +769,7 @@ class LauncherWindow(GUIFrame):
         pid = self.qstat_viewlist.GetTextValue(row, 0)
         result = add_message("Abort Queue Process {}?\n".format(pid), "Confirm Abort", "?")
         if result == wx.ID_OK:
-            command = f'scancel {pid}'
+            command = f"scancel {pid}"
             subprocess.call(command, shell=True)
             print(f"Job cancelled via: {command}")
 
@@ -798,7 +816,7 @@ class LauncherWindow(GUIFrame):
             self.reservation_id_text.Hide()
 
     def submit_overwatch_thread(self, *args):
-        """ Opens OverWatch on button click """
+        """Opens OverWatch on button click"""
         if not os.path.isfile(FIREFOX):
             add_message("Firefox is not installed on the cluster", title="Error", icon="!")
             return
@@ -863,12 +881,7 @@ class LauncherWindow(GUIFrame):
 
         op_mode = self.submit_mode_radiobox.GetSelection()
 
-        job_type = {
-            0: "pre-post",
-            1: "monitor",
-            2: "submit",
-            3: "interactive"
-        }
+        job_type = {0: "pre-post", 1: "monitor", 2: "submit", 3: "interactive"}
         try:
             self.send_statistics(aedt_version, job_type[op_mode])
         except:
@@ -885,7 +898,15 @@ class LauncherWindow(GUIFrame):
             elif op_mode == 2:
                 command_key = "-showmonitorjob"
 
-            threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env, command_key,)).start()
+            threading.Thread(
+                target=self._submit_batch_thread,
+                daemon=True,
+                args=(
+                    aedt_path,
+                    env,
+                    command_key,
+                ),
+            ).start()
 
     def submit_interactive_job(self, aedt_path, env, reservation, reservation_id):
         """
@@ -897,7 +918,7 @@ class LauncherWindow(GUIFrame):
         :return: None
         """
 
-        scheduler = 'sbatch'
+        scheduler = "sbatch"
         allocation_rule = self.m_alloc_dropmenu.GetCurrentSelection()
         num_nodes = num_cores = int(self.m_numcore.Value)
         queue = self.queue_dropmenu.Value
@@ -930,8 +951,7 @@ class LauncherWindow(GUIFrame):
         print(f"Execute via: {command}")
 
         try:
-            output = subprocess.check_output(
-                command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
+            output = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
         except subprocess.CalledProcessError as exc:
             msg = exc.output
             log_dict["scheduler"] = True
@@ -964,8 +984,9 @@ class LauncherWindow(GUIFrame):
         if reservation:
             ar = self.reservation_id_text.Value
             if ar in [None, ""]:
-                add_message("Reservation ID is not provided. Please set ID and click launch again",
-                            "Reservation ID", "!")
+                add_message(
+                    "Reservation ID is not provided. Please set ID and click launch again", "Reservation ID", "!"
+                )
 
         return reservation, ar
 
@@ -988,7 +1009,7 @@ class LauncherWindow(GUIFrame):
         db_name = "aedt_hpc_launcher"
         client.switch_database(db_name)
 
-        time_now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        time_now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         json_body = [
             {
                 "measurement": db_name,
@@ -996,12 +1017,10 @@ class LauncherWindow(GUIFrame):
                     "username": self.username,
                     "version": version,
                     "job_type": job_type,
-                    "cluster": self.hostname[:3]
+                    "cluster": self.hostname[:3],
                 },
                 "time": time_now,
-                "fields": {
-                    "count": 1
-                }
+                "fields": {"count": 1},
             }
         ]
 
@@ -1032,25 +1051,32 @@ class LauncherWindow(GUIFrame):
         registry_file = os.path.join(aedt_path, "UpdateRegistry")
 
         # set base for each command: path to registry, product and level
-        command_base = [registry_file, "-Set", "-ProductName", self.products[self.m_select_version1.Value],
-                        "-RegistryLevel", "user"]
+        command_base = [
+            registry_file,
+            "-Set",
+            "-ProductName",
+            self.products[self.m_select_version1.Value],
+            "-RegistryLevel",
+            "user",
+        ]
 
         # disable question about participation in product improvement
-        commands.append(["-RegistryKey", "Desktop/Settings/ProjectOptions/ProductImprovementOptStatus",
-                         "-RegistryValue", "1"])
+        commands.append(
+            ["-RegistryKey", "Desktop/Settings/ProjectOptions/ProductImprovementOptStatus", "-RegistryValue", "1"]
+        )
 
         # set installation path
-        commands.append(["-RegistryKey", 'Desktop/InstallationDirectory', "-RegistryValue", aedt_path])
+        commands.append(["-RegistryKey", "Desktop/InstallationDirectory", "-RegistryValue", aedt_path])
 
         # set project folder
-        commands.append(["-RegistryKey", 'Desktop/ProjectDirectory', "-RegistryValue", self.path_textbox.Value])
+        commands.append(["-RegistryKey", "Desktop/ProjectDirectory", "-RegistryValue", self.path_textbox.Value])
 
         # disable welcome message
-        commands.append(["-RegistryKey", 'Desktop/Settings/ProjectOptions/ShowWelcomeMsg', "-RegistryValue", "0"])
+        commands.append(["-RegistryKey", "Desktop/Settings/ProjectOptions/ShowWelcomeMsg", "-RegistryValue", "0"])
 
         # set personal lib
         personal_lib = os.path.join(os.environ["HOME"], "Ansoft", "Personallib")
-        commands.append(["-RegistryKey", 'Desktop/PersonalLib', "-RegistryValue", personal_lib])
+        commands.append(["-RegistryKey", "Desktop/PersonalLib", "-RegistryValue", personal_lib])
 
         # set Slurm scheduler
         settings_areg = os.path.join(os.path.dirname(os.path.realpath(__file__)), "slurm_settings.areg")
@@ -1060,7 +1086,7 @@ class LauncherWindow(GUIFrame):
             subprocess.call(command_base + command)
 
     def m_update_msg_list(self, *args):
-        """ Fired when user clicks 'Show all messages' for Scheduler messages window"""
+        """Fired when user clicks 'Show all messages' for Scheduler messages window"""
         self.update_msg_list()
 
     def delete_row(self, *args):
@@ -1073,8 +1099,9 @@ class LauncherWindow(GUIFrame):
     def add_new_build(self, *args):
         """By click on Add New Build opens file dialogue to select path and input box to set name.
         At the end we update JSON file with custom builds"""
-        get_dir_dialogue = wx.DirDialog(None, "Choose a Linux64 directory:",
-                                        style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
+        get_dir_dialogue = wx.DirDialog(
+            None, "Choose a Linux64 directory:", style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
+        )
         if get_dir_dialogue.ShowModal() == wx.ID_OK:
             path = get_dir_dialogue.GetPath()
             get_dir_dialogue.Destroy()
@@ -1083,8 +1110,9 @@ class LauncherWindow(GUIFrame):
             return
 
         if "Linux64" not in path[-7:]:
-            add_message("Your path should include and be ended by Linux64 (eg /ott/apps/ANSYSEM/Linux64)",
-                        "Wrong path", "!")
+            add_message(
+                "Your path should include and be ended by Linux64 (eg /ott/apps/ANSYSEM/Linux64)", "Wrong path", "!"
+            )
             return
 
         get_name_dialogue = wx.TextEntryDialog(None, "Set name of a build:", value="AEDT_2019R3")
@@ -1129,7 +1157,7 @@ class LauncherWindow(GUIFrame):
         Kill the process to kill all child threads.
         """
         self.timer_stop()
-        lock_file = os.path.join(self.app_dir, 'ui.lock')
+        lock_file = os.path.join(self.app_dir, "ui.lock")
         try:
             os.remove(lock_file)
         except FileNotFoundError:
@@ -1216,7 +1244,7 @@ def add_message(message, title="", icon="?"):
     return result
 
 
-def init_combobox(entry_list, combobox, default_value=''):
+def init_combobox(entry_list, combobox, default_value=""):
     """Fills a wx.Combobox element with the entries in a list.
 
     Parameters
@@ -1249,13 +1277,15 @@ def main():
 
     app = wx.App()
 
-    lock_file = os.path.join(LauncherWindow.ensure_app_folder(), 'ui.lock')
+    lock_file = os.path.join(LauncherWindow.ensure_app_folder(), "ui.lock")
     if os.path.exists(lock_file):
         result = add_message(
-            ("Application was not properly closed or you have multiple instances opened. "
-             "Do you really want to open new instance?"
-             ),
-            "Instance error", "?"
+            (
+                "Application was not properly closed or you have multiple instances opened. "
+                "Do you really want to open new instance?"
+            ),
+            "Instance error",
+            "?",
         )
         if result != wx.ID_OK:
             return
@@ -1268,5 +1298,5 @@ def main():
     app.MainLoop()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
