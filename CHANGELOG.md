@@ -1,3 +1,6 @@
+## [v3.2.1](https://github.com/beliaev-maksim/linux_hpc_launcher_slurm/compare/v3.2.0...v3.2.1)
+* apply `black` style to `run_gui.py`
+
 ## [v3.2.0](https://github.com/beliaev-maksim/linux_hpc_launcher_slurm/compare/v3.1.12...v3.2.0)
 * enable product improvement by default
 * remove unused function
