@@ -132,6 +132,10 @@ SIGNAL_EVT_QSTAT = wx.PyEventBinder(NEW_SIGNAL_EVT_QSTAT, 1)
 NEW_SIGNAL_EVT_LOG = wx.NewEventType()
 SIGNAL_EVT_LOG = wx.PyEventBinder(NEW_SIGNAL_EVT_LOG, 1)
 
+# signal - status bar
+NEW_SIGNAL_EVT_BAR = wx.NewEventType()
+SIGNAL_EVT_BAR = wx.PyEventBinder(NEW_SIGNAL_EVT_BAR, 1)
+
 
 class SignalEvent(wx.PyCommandEvent):
     """Event to signal that we are ready to update the plot"""
@@ -254,6 +258,40 @@ class ClusterLoadUpdateThread(threading.Thread):
                 queue_dict[queue_name]["avail_cores"] = queue_elem["totalAvailableSlots"]
         evt = SignalEvent(my_SIGNAL_EVT, -1)
         wx.PostEvent(self._parent, evt)
+
+
+class FlashStatusBarThread(threading.Thread):
+    def __init__(self, parent):
+        """
+        @param parent: The gui object that should receive the value
+        """
+        threading.Thread.__init__(self)
+        self._parent = parent
+
+    def run(self):
+        """Overrides Thread.run. Don't call this directly its called internally
+        when you call Thread.start().
+        alternates the color of the status bar for run_sec (6s) to take attention
+        at the end clears the status message
+        """
+
+        if self._parent.bar_level == "i":
+            alternating_color = wx.GREEN
+        elif self._parent.bar_level == "!":
+            alternating_color = wx.RED
+
+        run_sec = 6
+        for i in range(run_sec*2):
+            self._parent.bar_color = wx.WHITE if i % 2 == 0 else alternating_color
+
+            if i == run_sec*2 - 1:
+                self._parent.bar_text = 'No Status Message'
+                self._parent.bar_color = wx.WHITE
+
+            evt = SignalEvent(NEW_SIGNAL_EVT_BAR, -1)
+            wx.PostEvent(self._parent, evt)
+
+            time.sleep(0.5)
 
 
 class LauncherWindow(GUIFrame):
@@ -407,6 +445,7 @@ class LauncherWindow(GUIFrame):
         self.Bind(SIGNAL_EVT, self.on_signal)
         self.Bind(SIGNAL_EVT_QSTAT, self.update_job_status)
         self.Bind(SIGNAL_EVT_LOG, self.add_log_entry)
+        self.Bind(SIGNAL_EVT_BAR, self.set_status_bar)
 
         # start a thread to update cluster load
         worker = ClusterLoadUpdateThread(self)
@@ -416,6 +455,26 @@ class LauncherWindow(GUIFrame):
         # after UI is loaded run select_mode to process UI correctly, otherwise UI is shifted since sizers do not
         # reserve space for hidden objects
         wx.CallAfter(self.select_mode)
+
+    def set_status_bar(self, _unused_event=None):
+        self.m_status_bar.SetStatusText(self.bar_text, 1)
+        self.m_status_bar.SetBackgroundColour(self.bar_color)
+        self.m_status_bar.Refresh()
+
+    def add_status_msg(self, msg="", level="i"):
+        """
+        Function that creates a thread to add a status bar message with alternating color to take attention of the user
+        :param msg: str, message text
+        :param level: either "i" as information for green color or "!" as error for red color
+        :return: None
+        """
+        self.bar_text = msg
+        self.bar_level = level
+        self.bar_color = wx.WHITE
+
+        # start a thread to update status bar
+        self.worker = FlashStatusBarThread(self)
+        self.worker.start()
 
     @staticmethod
     def ensure_app_folder():
@@ -565,25 +624,26 @@ class LauncherWindow(GUIFrame):
 
     def evt_num_cores_nodes_change(self, *args):
         try:
-            num_cores_or_nodes = int(self.m_numcore.Value)
+            num_cores = num_nodes = int(self.m_numcore.Value)
         except ValueError:
-            # todo add status message
+            self.add_status_msg("Nodes Value must be integer", level="!")
+            self.m_numcore.Value = str(1)
             return
 
-        if num_cores_or_nodes < 1:
+        if num_cores < 1:
             self.m_numcore.Value = str(1)
             return
 
         cores_per_node = queue_config_dict[self.queue_dropmenu.Value]["cores"]
         ram_per_node = queue_config_dict[self.queue_dropmenu.Value]["ram"]
         if self.m_alloc_dropmenu.GetCurrentSelection() == 0:
-            if num_cores_or_nodes > cores_per_node:
+            if num_cores > cores_per_node:
                 self.m_numcore.Value = str(cores_per_node)
                 # todo add status message
             summary_msg = f"You request {self.m_numcore.Value} Cores and {ram_per_node}GB of shared RAM"
         else:
-            total_cores = cores_per_node * num_cores_or_nodes
-            total_ram = ram_per_node * num_cores_or_nodes
+            total_cores = cores_per_node * num_nodes
+            total_ram = ram_per_node * num_nodes
             summary_msg = f"You request {total_cores} Cores and {total_ram}GB RAM"
 
         self.m_summary_caption.LabelText = summary_msg
