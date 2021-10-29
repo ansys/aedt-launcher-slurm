@@ -32,7 +32,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.1.13"
+__version__ = "v3.2.0"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -329,8 +329,7 @@ class LauncherWindow(GUIFrame):
         # set default project path
         self.path_textbox.Value = os.path.join(project_path, self.username)
 
-        if self.display_node[0] == ':':
-            self.display_node = self.hostname + self.display_node
+        self.display_node = self.check_display_var()
 
         # check if we are on VNC or DCV node
         viz_type = None
@@ -383,35 +382,8 @@ class LauncherWindow(GUIFrame):
         self.user_build_viewlist.AppendTextColumn('Build Name', width=150)
         self.user_build_viewlist.AppendTextColumn('Build Path', width=640)
 
-        # Setup Process ViewList
-        self.qstat_viewlist.AppendTextColumn('PID', width=70)
-        self.qstat_viewlist.AppendTextColumn('State', width=50)
-        self.qstat_viewlist.AppendTextColumn('Name', width=80)
-        self.qstat_viewlist.AppendTextColumn('User', width=70)
-        self.qstat_viewlist.AppendTextColumn('Queue', width=200)
-        self.qstat_viewlist.AppendTextColumn('cpu', width=40)
-        self.qstat_viewlist.AppendTextColumn('Started', width=50)
-
-        # setup cluster load table
-        self.load_grid.SetColLabelValue(0, 'Available')
-        self.load_grid.SetColSize(0, 80)
-        self.load_grid.SetColLabelValue(1, 'Used')
-        self.load_grid.SetColSize(1, 80)
-        self.load_grid.SetColLabelValue(2, 'Reserved')
-        self.load_grid.SetColSize(2, 80)
-        self.load_grid.SetColLabelValue(3, 'Failed')
-        self.load_grid.SetColSize(3, 80)
-        self.load_grid.SetColLabelValue(4, 'Total')
-        self.load_grid.SetColSize(4, 80)
-
-        for i, queue_key in enumerate(queue_dict):
-            self.load_grid.AppendRows(1)
-            self.load_grid.SetRowLabelValue(i, queue_key)
-
-            # colors
-            self.load_grid.SetCellBackgroundColour(i, 0, "light green")
-            self.load_grid.SetCellBackgroundColour(i, 1, "red")
-            self.load_grid.SetCellBackgroundColour(i, 2, "light grey")
+        self.set_user_jobs_viewlist()
+        self.set_cluster_load_table()
 
         # Disable Pre-Post/Interactive radio button in case of DCV
         if viz_type == 'DCV':
@@ -455,6 +427,37 @@ class LauncherWindow(GUIFrame):
         # after UI is loaded run select_mode to process UI correctly, otherwise UI is shifted since sizers do not
         # reserve space for hidden objects
         wx.CallAfter(self.select_mode)
+
+    def set_user_jobs_viewlist(self):
+        # Setup Process ViewList
+        self.qstat_viewlist.AppendTextColumn('PID', width=70)
+        self.qstat_viewlist.AppendTextColumn('State', width=50)
+        self.qstat_viewlist.AppendTextColumn('Name', width=80)
+        self.qstat_viewlist.AppendTextColumn('User', width=70)
+        self.qstat_viewlist.AppendTextColumn('Queue', width=200)
+        self.qstat_viewlist.AppendTextColumn('cpu', width=40)
+        self.qstat_viewlist.AppendTextColumn('Started', width=50)
+
+    def set_cluster_load_table(self):
+        # setup cluster load table
+        self.load_grid.SetColLabelValue(0, 'Available')
+        self.load_grid.SetColSize(0, 80)
+        self.load_grid.SetColLabelValue(1, 'Used')
+        self.load_grid.SetColSize(1, 80)
+        self.load_grid.SetColLabelValue(2, 'Reserved')
+        self.load_grid.SetColSize(2, 80)
+        self.load_grid.SetColLabelValue(3, 'Failed')
+        self.load_grid.SetColSize(3, 80)
+        self.load_grid.SetColLabelValue(4, 'Total')
+        self.load_grid.SetColSize(4, 80)
+        for i, queue_key in enumerate(queue_dict):
+            self.load_grid.AppendRows(1)
+            self.load_grid.SetRowLabelValue(i, queue_key)
+
+            # colors
+            self.load_grid.SetCellBackgroundColour(i, 0, "light green")
+            self.load_grid.SetCellBackgroundColour(i, 1, "red")
+            self.load_grid.SetCellBackgroundColour(i, 2, "light grey")
 
     def set_status_bar(self, _unused_event=None):
         self.m_status_bar.SetStatusText(self.bar_text, 1)
@@ -802,19 +805,13 @@ class LauncherWindow(GUIFrame):
 
         threading.Thread(target=self.open_overwatch, daemon=True).start()
 
-    @staticmethod
-    def check_display_var(env):
+    def check_display_var(self):
         """Validate that DISPLAY variable follow convention hostname:display_number
-
-        Parameters
-        ----------
-        env : str
-            Environment variables string.
 
         Returns
         -------
         str
-            Updated environment variables string.
+            Proper display value
         """
 
         display_var = os.getenv("DISPLAY", "")
@@ -823,38 +820,26 @@ class LauncherWindow(GUIFrame):
             add_message(msg, "Environment error", icon="!")
             raise EnvironmentError(msg)
 
+        if ":" not in display_var:
+            msg = "DISPLAY hasn't session number specified. Contact cluster admin"
+            add_message(msg, "Environment error", icon="!")
+            raise EnvironmentError(msg)
+
         if not display_var.split(":")[0]:
-            # hostname is empty
-            hostname_var = os.getenv("HOSTNAME", "")
-            if not hostname_var:
-                msg = "HOSTNAME environment variable is not specified. Contact cluster admin"
-                add_message(msg, "Environment error", icon="!")
-                raise EnvironmentError(msg)
+            return f"{self.hostname}:{display_var.split(':')[1]}"
 
-            if ":" not in display_var:
-                msg = "DISPLAY hasn't session number specified. Contact cluster admin"
-                add_message(msg, "Environment error", icon="!")
-                raise EnvironmentError(msg)
-
-            env += f",DISPLAY={hostname_var}:{display_var.split(':')[1]}"
-
-        return env
+        return display_var
 
     def click_launch(self, *args):
         """Depending on the choice of the user invokes AEDT on visual node or simply for pre/post"""
         check_ssh()
 
-        # Scheduler data
-        scheduler = 'sbatch'
-        queue = self.queue_dropmenu.Value
-        allocation_rule = self.m_alloc_dropmenu.GetCurrentSelection()
-        num_nodes = num_cores = int(self.m_numcore.Value)
         aedt_version = self.m_select_version1.Value
         aedt_path = install_dir[aedt_version]
 
-        env = "ALL"
+        env = ""
         if self.env_var_text.Value:
-            env += "," + self.env_var_text.Value
+            env += "" + self.env_var_text.Value
 
         if admin_env_vars:
             env_list = [f"{env_var}={env_val}" for env_var, env_val in admin_env_vars.items()]
@@ -866,13 +851,16 @@ class LauncherWindow(GUIFrame):
             env = re.sub(",+", ",", env)
             env = env.rstrip(",").lstrip(",")
 
+        reservation, reservation_id = self.check_reservation()
+        if reservation and not reservation_id:
+            return
+
         try:
             self.update_registry(aedt_path)
         except FileNotFoundError:
             add_message("Verify project directory. Probably user name was changed", "Wrong project path", "!")
             return
 
-        reservation, reservation_id = self.check_reservation()
         op_mode = self.submit_mode_radiobox.GetSelection()
 
         job_type = {
@@ -888,49 +876,7 @@ class LauncherWindow(GUIFrame):
             print("Error sending statistics")
 
         if op_mode == 3:
-            # interactive submission
-            env = self.check_display_var(env)
-            command = [scheduler, "--job-name", "aedt", "--partition", queue, "--export", env]
-
-            if allocation_rule == 0:
-                # 1 node and cores
-                command += ["--nodes", "1-1", "--ntasks", str(num_cores)]
-                total_cores = num_cores
-            else:
-                cores_per_node = queue_config_dict[queue]["cores"]
-                total_cores = cores_per_node * num_nodes
-                command += ["--nodes", f"{num_nodes}-{num_nodes}", "--ntasks", str(total_cores)]
-
-            nodes_list_str = self.m_nodes_list.Value
-            nodes_list_str = nodes_list_str.replace(" ", "")
-            if self.m_nodes_list_checkbox.Value and nodes_list_str:
-                command += ["--nodelist", nodes_list_str]
-
-            if reservation:
-                if not reservation_id:
-                    return
-                command += ["--reservation", reservation_id]
-
-            aedt_str = " ".join([os.path.join(aedt_path, "ansysedt"), "-machinelist", f"num={total_cores}"])
-            command += ["--wrap", f'"{aedt_str}"']
-            command = " ".join(command)  # convert to string to avoid escaping characters
-            print(f"Execute with {command}")
-            try:
-                output = subprocess.check_output(
-                    command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
-            except subprocess.CalledProcessError as exc:
-                msg = exc.output
-                log_dict["scheduler"] = True
-            else:
-                msg = f"Job submitted to {queue}\nSubmit Command:{command}"
-                pid = output.strip().split()[-1]
-                log_dict["scheduler"] = False
-                log_dict["pid"] = pid
-                self.log_data["PID List"].append(pid)
-
-            log_dict["msg"] = msg
-            self.add_log_entry()
-
+            self.submit_interactive_job(aedt_path, env, reservation, reservation_id)
         else:
             env = env[4:]  # remove ALL, from env vars
             command_key = ""
@@ -940,6 +886,64 @@ class LauncherWindow(GUIFrame):
                 command_key = "-showmonitorjob"
 
             threading.Thread(target=self._submit_batch_thread, daemon=True, args=(aedt_path, env, command_key,)).start()
+
+    def submit_interactive_job(self, aedt_path, env, reservation, reservation_id):
+        """
+        Submit interactive job
+        :param aedt_path:
+        :param env:
+        :param reservation:
+        :param reservation_id:
+        :return: None
+        """
+
+        scheduler = 'sbatch'
+        allocation_rule = self.m_alloc_dropmenu.GetCurrentSelection()
+        num_nodes = num_cores = int(self.m_numcore.Value)
+        queue = self.queue_dropmenu.Value
+
+        # interactive submission
+        env += f",DISPLAY={self.display_node}"
+
+        command = [scheduler, "--job-name", "aedt", "--partition", queue, "--export", env]
+        if allocation_rule == 0:
+            # 1 node and cores
+            command += ["--nodes", "1-1", "--ntasks", str(num_cores)]
+            total_cores = num_cores
+        else:
+            cores_per_node = queue_config_dict[queue]["cores"]
+            total_cores = cores_per_node * num_nodes
+            command += ["--nodes", f"{num_nodes}-{num_nodes}", "--ntasks", str(total_cores)]
+
+        nodes_list_str = self.m_nodes_list.Value
+        nodes_list_str = nodes_list_str.replace(" ", "")
+
+        if self.m_nodes_list_checkbox.Value and nodes_list_str:
+            command += ["--nodelist", nodes_list_str]
+
+        if reservation:
+            command += ["--reservation", reservation_id]
+
+        aedt_str = " ".join([os.path.join(aedt_path, "ansysedt"), "-machinelist", f"num={total_cores}"])
+        command += ["--wrap", f'"{aedt_str}"']
+        command = " ".join(command)  # convert to string to avoid escaping characters
+        print(f"Execute via: {command}")
+
+        try:
+            output = subprocess.check_output(
+                command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
+        except subprocess.CalledProcessError as exc:
+            msg = exc.output
+            log_dict["scheduler"] = True
+        else:
+            msg = f"Job submitted to {queue}\nSubmit Command:{command}"
+            pid = output.strip().split()[-1]
+            log_dict["scheduler"] = False
+            log_dict["pid"] = pid
+            self.log_data["PID List"].append(pid)
+
+        log_dict["msg"] = msg
+        self.add_log_entry()
 
     def check_reservation(self):
         """Validate if user wants to run with predefined reservation.
