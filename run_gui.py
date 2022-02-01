@@ -32,7 +32,7 @@ from influxdb import InfluxDBClient
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.2.1"
+__version__ = "v3.2.2"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
@@ -643,13 +643,13 @@ class LauncherWindow(GUIFrame):
 
     def evt_num_cores_nodes_change(self, *args):
         try:
-            num_cores = num_nodes = int(self.m_numcore.Value)
+            num_cores = num_nodes = int(self.m_numcore.Value or 0)
         except ValueError:
             self.add_status_msg("Nodes Value must be integer", level="!")
             self.m_numcore.Value = str(1)
             return
 
-        if num_cores < 1:
+        if num_cores < 0:
             self.m_numcore.Value = str(1)
             return
 
@@ -920,6 +920,10 @@ class LauncherWindow(GUIFrame):
 
         scheduler = "sbatch"
         allocation_rule = self.m_alloc_dropmenu.GetCurrentSelection()
+        if int(self.m_numcore.Value or 0) < 1:
+            self.add_status_msg("Nodes Value must be a positive integer", level="!")
+            return
+
         num_nodes = num_cores = int(self.m_numcore.Value)
         queue = self.queue_dropmenu.Value
 
