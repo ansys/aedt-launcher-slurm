@@ -325,7 +325,7 @@ class LauncherWindow(GUIFrame):
 
         # generate list of products for registry
         self.products = {}
-        for key in install_dir.keys():
+        for key in list(install_dir.keys()):
             try:
                 with open(os.path.join(install_dir[key], "config", "ProductList.txt")) as file:
                     self.products[key] = next(file).rstrip()  # get first line
