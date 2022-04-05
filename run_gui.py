@@ -1199,6 +1199,7 @@ class LauncherWindow(GUIFrame):
                 env_vars[variable] = value
 
         command = [os.path.join(aedt_path, "ansysedt"), command_key]
+        print("Electronics Desktop is started via:", subprocess.list2cmdline(command))
         subprocess.Popen(command, env=env_vars)
 
 
