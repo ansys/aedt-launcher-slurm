@@ -10,8 +10,6 @@ import getpass
 import json
 import os
 import re
-
-import requests
 import shutil
 import signal
 import socket
@@ -22,12 +20,12 @@ import time
 from collections import OrderedDict
 from datetime import datetime
 
+import requests
 import wx
-from wx.lib.wordwrap import wordwrap
 import wx._core
 import wx.dataview
-
 from influxdb import InfluxDBClient
+from wx.lib.wordwrap import wordwrap
 
 from gui.src_gui import GUIFrame
 
@@ -439,7 +437,7 @@ class LauncherWindow(GUIFrame):
         wx.CallAfter(self.select_mode)
 
     def set_user_jobs_viewlist(self):
-        """ Setup Process ViewList"""
+        """Setup Process ViewList"""
         self.qstat_viewlist.AppendTextColumn("PID", width=70)
         self.qstat_viewlist.AppendTextColumn("State", width=50)
         self.qstat_viewlist.AppendTextColumn("Name", width=80)
@@ -449,7 +447,7 @@ class LauncherWindow(GUIFrame):
         self.qstat_viewlist.AppendTextColumn("Started", width=50)
 
     def set_cluster_load_table(self):
-        """ setup cluster load table"""
+        """setup cluster load table"""
         self.load_grid.SetColLabelValue(0, "Available")
         self.load_grid.SetColSize(0, 80)
         self.load_grid.SetColLabelValue(1, "Used")
@@ -884,7 +882,7 @@ class LauncherWindow(GUIFrame):
         job_type = {0: "pre-post", 1: "monitor", 2: "submit", 3: "interactive"}
         try:
             self.send_statistics(aedt_version, job_type[op_mode])
-        except:
+        except Exception:
             # not worry a lot
             print("Error sending statistics")
 
