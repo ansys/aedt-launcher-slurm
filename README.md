@@ -16,14 +16,14 @@ Environments, RAM/Cores per node in queue, link to the SSH file, AEDT installati
 [run_gui.py](run_gui.py) and modify the file. Set the path to the Python3 interpreter and absolute path to
 [run_gui.py](run_gui.py)
 4. Install the runtime requirements in your Python3 interpreter by running:
-    ~~~
+    ```
     python3 -m pip install -r requirements.txt
-    ~~~
+    ```
     where you need to specify relative or absolute path to [requirements.txt](requirements.txt)
 5. You may need to set up your environment to include alias:
-    ~~~
+    ```
     alias aedt '"/ekm/software/anaconda3/bin/python3" "/ott/apps/software/AEDT_Launcher/run_gui.py"'
-    ~~~
+    ```
 6. You may need to automatically copy or create shortcut to
 [launcher_script.desktop](templates/launcher_script.desktop) for each user
 

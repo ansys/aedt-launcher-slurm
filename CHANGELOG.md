@@ -1,3 +1,7 @@
+## [v3.2.3](https://github.com/beliaev-maksim/linux_hpc_launcher_slurm/compare/v3.2.2...v3.2.3)
+* Fixed issue when multiple builds were corrupted and that caused mutation of the dictionary
+* Print to console command that starts AEDT in batch/monitor/submit mode
+
 ## [v3.2.2](https://github.com/beliaev-maksim/linux_hpc_launcher_slurm/compare/v3.2.1...v3.2.2)
 * Fixed issue when user was deleting nodes number and it was replaced by 1
 
