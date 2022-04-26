@@ -30,7 +30,7 @@ from wx.lib.wordwrap import wordwrap
 from gui.src_gui import GUIFrame
 
 __authors__ = "Maksim Beliaev, Leon Voss"
-__version__ = "v3.2.2"
+__version__ = "v3.2.3"
 
 STATISTICS_SERVER = "OTTBLD02"
 STATISTICS_PORT = 8086
