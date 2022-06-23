@@ -1150,7 +1150,7 @@ class LauncherWindow(GUIFrame):
             except:
                 add_message(
                     message=(
-                        "Cannot open the selected project path file\n"
+                        "Cannot open the selected project path\n"
                         "Make sure the file exists and that you have the permission to access it"
                     ),
                     title="I/O Error",
