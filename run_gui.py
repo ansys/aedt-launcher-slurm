@@ -1145,8 +1145,19 @@ class LauncherWindow(GUIFrame):
         """
         get_dir_dialogue = wx.DirDialog(None, "Choose directory:", style=wx.DD_DEFAULT_STYLE)
         if get_dir_dialogue.ShowModal() == wx.ID_OK:
-            path = get_dir_dialogue.GetPath()
-            get_dir_dialogue.Destroy()
+            try:
+                path = get_dir_dialogue.GetPath()
+            except:
+                add_message(
+                    message=(
+                        "Cannot open the selected project path\n"
+                        "Make sure the file exists and that you have the permission to access it"
+                    ),
+                    title="I/O Error",
+                    icon="!",
+                )
+                path = ""
+                get_dir_dialogue.Destroy()
         else:
             get_dir_dialogue.Destroy()
             return
